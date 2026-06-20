@@ -1,0 +1,10 @@
+ALTER TABLE "Story" ADD COLUMN "language" TEXT NOT NULL DEFAULT 'english';
+ALTER TABLE "Story" ADD COLUMN "storyType" TEXT NOT NULL DEFAULT 'novel';
+ALTER TABLE "Story" ADD COLUMN "leadingGender" TEXT;
+ALTER TABLE "Story" ADD COLUMN "tagCategory" TEXT;
+ALTER TABLE "Story" ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "Story" ADD COLUMN "abbreviation" TEXT;
+ALTER TABLE "Story" ADD COLUMN "storyLength" TEXT;
+ALTER TABLE "Story" ADD COLUMN "writingContest" TEXT;
+ALTER TABLE "Story" ADD COLUMN "warningNotice" TEXT;
+ALTER TABLE "Story" ADD COLUMN "invitationCode" TEXT;

@@ -1,0 +1,428 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  username           String               @unique
+  displayName        String?
+  passwordHash       String?
+  role               UserRole             @default(READER)
+  status             AccountStatus        @default(ACTIVE)
+  emailVerifiedAt    DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  adminLogs          AdminLog[]
+  accounts           AuthAccount[]
+  bookmarks          Bookmark[]
+  transactions       CoinTransaction[]
+  comments           Comment[]
+  devices            Device[]
+  purchases          Purchase[]
+  payments           Payment[]
+  ratings            Rating[]
+  readingHistory     ReadingHistory[]
+  readingSessions    ReadingSession[]
+  sessions           Session[]
+  suspiciousEvents   SuspiciousActivity[]
+  unlockEvents       UnlockEvent[]
+  verificationTokens VerificationToken[]
+  wallet             Wallet?
+}
+
+model AuthAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id            String    @id @default(cuid())
+  userId        String
+  sessionToken  String    @unique
+  deviceId      String?
+  ipHash        String?
+  userAgentHash String?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  device        Device?   @relation(fields: [deviceId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String    @id @default(cuid())
+  userId     String?
+  email      String
+  tokenHash  String
+  purpose    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose])
+}
+
+model Device {
+  id              String           @id @default(cuid())
+  userId          String
+  fingerprintHash String
+  label           String?
+  trusted         Boolean          @default(false)
+  lastIpHash      String?
+  lastSeenAt      DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readingSessions ReadingSession[]
+  sessions        Session[]
+
+  @@unique([userId, fingerprintHash])
+}
+
+model Story {
+  id             String           @id @default(cuid())
+  slug           String           @unique
+  title          String
+  genre          String
+  description    String
+  authorName     String
+  coverUrl       String?
+  ratingAverage  Float            @default(0)
+  readsCount     Int              @default(0)
+  freeChapterCap Int              @default(10)
+  published      Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  language       String           @default("english")
+  storyType      String           @default("novel")
+  leadingGender  String?
+  tagCategory    String?
+  tags           String[]         @default([])
+  abbreviation   String?
+  storyLength    String?
+  writingContest String?
+  warningNotice  String?
+  invitationCode String?
+  bookmarks      Bookmark[]
+  chapters       Chapter[]
+  comments       Comment[]
+  ratings        Rating[]
+  readingHistory ReadingHistory[]
+}
+
+model Chapter {
+  id               String           @id @default(cuid())
+  storyId          String
+  number           Int
+  title            String
+  status           ChapterStatus    @default(DRAFT)
+  isFree           Boolean          @default(false)
+  coinPrice        Int              @default(0)
+  encryptedContent String
+  contentNonce     String
+  contentAuthTag   String
+  excerpt          String?
+  publishedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  bookmarks        Bookmark[]
+  story            Story            @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  comments         Comment[]
+  purchases        Purchase[]
+  ratings          Rating[]
+  readingHistory   ReadingHistory[]
+  readingSessions  ReadingSession[]
+  unlockEvents     UnlockEvent[]
+
+  @@unique([storyId, number])
+  @@index([storyId, status])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  locked    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CoinPackage {
+  id         String    @id @default(cuid())
+  name       String
+  coins      Int
+  bonusCoins Int       @default(0)
+  priceCents Int
+  currency   String    @default("INR")
+  active     Boolean   @default(true)
+  campaign   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  payments   Payment[]
+}
+
+model CoinTransaction {
+  id           String          @id @default(cuid())
+  userId       String
+  walletId     String?
+  type         TransactionType
+  amount       Int
+  balanceAfter Int
+  description  String
+  referenceId  String?
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  coinPackageId     String?
+  provider          PaymentProvider
+  providerOrderId   String?
+  providerPaymentId String?
+  paymentMethod     String?
+  status            PaymentStatus   @default(CREATED)
+  amountCents       Int
+  coinsAdded        Int             @default(0)
+  currency          String          @default("INR")
+  rawPayload        Json?
+  failureReason     String?
+  processedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  coinPackage       CoinPackage?    @relation(fields: [coinPackageId], references: [id])
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([provider, providerOrderId])
+  @@index([provider, providerPaymentId])
+  @@unique([provider, providerOrderId])
+  @@unique([provider, providerPaymentId])
+}
+
+model PaymentWebhookEvent {
+  id          String          @id @default(cuid())
+  provider    PaymentProvider
+  eventId     String          @unique
+  eventType   String
+  orderId     String?
+  paymentId   String?
+  processed   Boolean         @default(false)
+  rawPayload  Json
+  createdAt   DateTime        @default(now())
+
+  @@index([provider, eventType])
+  @@index([orderId])
+  @@index([paymentId])
+}
+
+model Purchase {
+  id          String   @id @default(cuid())
+  userId      String
+  chapterId   String
+  storyId     String
+  coinCost    Int
+  fingerprint String
+  createdAt   DateTime @default(now())
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@index([storyId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  storyId   String
+  chapterId String?
+  body      String
+  hidden    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([storyId, chapterId])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  userId    String
+  storyId   String
+  chapterId String?
+  scope     String
+  value     Int
+  createdAt DateTime @default(now())
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope])
+  @@index([storyId, chapterId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  storyId   String
+  chapterId String
+  note      String?
+  createdAt DateTime @default(now())
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+}
+
+model ReadingHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  storyId      String
+  chapterId    String
+  progressPct  Int      @default(0)
+  lastPosition String?
+  lastReadAt   DateTime @default(now())
+  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  story        Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+}
+
+model ReadingSession {
+  id              String    @id @default(cuid())
+  userId          String
+  chapterId       String
+  deviceId        String?
+  accessTokenHash String
+  watermark       String
+  startedAt       DateTime  @default(now())
+  expiresAt       DateTime
+  completedAt     DateTime?
+  chapter         Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  device          Device?   @relation(fields: [deviceId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, chapterId, startedAt])
+}
+
+model UnlockEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  chapterId    String
+  walletBefore Int
+  walletAfter  Int
+  coinCost     Int
+  ipHash       String?
+  deviceHash   String?
+  createdAt    DateTime @default(now())
+  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model SuspiciousActivity {
+  id        String             @id @default(cuid())
+  userId    String?
+  severity  SuspiciousSeverity
+  eventType String
+  detail    String
+  metadata  Json?
+  createdAt DateTime           @default(now())
+  user      User?              @relation(fields: [userId], references: [id])
+
+  @@index([userId, severity])
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  target    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, createdAt])
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  source    String?
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  READER
+  AUTHOR
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum ChapterStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TransactionType {
+  PURCHASE
+  BONUS
+  UNLOCK
+  REFUND
+  ADJUSTMENT
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SuspiciousSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
