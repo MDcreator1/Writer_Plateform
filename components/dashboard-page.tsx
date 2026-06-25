@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   ArrowLeft,
   Bookmark,
@@ -9,11 +12,13 @@ import {
   History,
   LockKeyhole,
   ShieldCheck,
-  Star
+  Star,
+  KeyRound,
+  LogOut,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import type { Story } from "@/lib/content";
 
 type DashboardPageProps = {
   user: {
@@ -39,17 +44,56 @@ type DashboardPageProps = {
       status: string;
     }>;
     coinEvents: Array<{ id: string; label: string; amount: number; date: string }>;
-    stories: Story[];
+    favorites: Array<{
+      id: string;
+      slug: string;
+      title: string;
+      genre: string;
+      rating: number;
+      chapterTitle: string;
+    }>;
+    readingHistory: Array<{
+      id: string;
+      slug: string;
+      title: string;
+      chapterNumber: number;
+      chapterTitle: string;
+      progress: number;
+    }>;
+    activeSubscription: {
+      planType: string;
+      expiresAt: string;
+      dailyCoins: number;
+    } | null;
   };
 };
 
 export function DashboardPage({ user, data }: DashboardPageProps) {
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
+  const [requestingReset, setRequestingReset] = useState(false);
+
   const accountCards = [
     { label: "Coin balance", value: String(data.walletBalance), icon: Coins },
     { label: "Purchased chapters", value: String(data.accountStats.purchasedChapters), icon: LockKeyhole },
     { label: "Favorite stories", value: String(data.accountStats.favoriteStories), icon: Heart },
     { label: "Reading hours", value: String(data.accountStats.readingHours), icon: Clock }
   ];
+
+  const handleSecurityReset = async () => {
+    setRequestingReset(true);
+    try {
+      await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email })
+      });
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/auth";
+    } catch (e) {
+      console.error(e);
+      window.location.href = "/auth";
+    }
+  };
 
   return (
     <main className="min-h-screen">
@@ -61,9 +105,12 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
           </Link>
           <div className="dashboard-header-actions flex items-center gap-3">
             <ThemeSwitcher compact />
-            <Link href="/auth" className="lm-btn-primary dashboard-security-link py-2">
+            <button
+              onClick={() => setSecurityModalOpen(true)}
+              className="lm-btn-primary dashboard-security-link py-2 px-4 text-sm font-semibold cursor-pointer"
+            >
               Account Security
-            </Link>
+            </button>
           </div>
         </nav>
       </header>
@@ -76,11 +123,19 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
               Welcome back, {user.displayName || user.username}
             </h1>
             <p className="dashboard-profile-desc mt-3 max-w-2xl leading-7 text-soft-ink">
-              Track your wallet balance, verified coin purchases, unlocked chapters, favorites, ratings, and recent reading activity.
+              Track your wallet balance, verified coin purchases, active memberships, unlocked chapters, favorites, ratings, and recent reading activity.
             </p>
           </div>
-          <div className="dashboard-verification-badge rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success">
-            Server verified wallet · Razorpay protected
+          <div className="flex flex-col gap-3.5 items-end">
+            <div className="dashboard-verification-badge rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success">
+              Server verified wallet · Razorpay protected
+            </div>
+            {data.activeSubscription && (
+              <div className="rounded-xl border border-accent/30 bg-accent-soft/40 px-4 py-3 text-sm font-semibold text-accent2 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Active: {data.activeSubscription.planType} Pass (Expires: {data.activeSubscription.expiresAt})</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -141,7 +196,7 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
                   </span>
                 </div>
               )) : (
-                <p className="rounded-lg bg-surface-soft p-4 text-sm text-muted">No coin purchases yet.</p>
+                <p className="rounded-lg bg-surface-soft p-4 text-sm text-muted">No transactions recorded yet.</p>
               )}
             </div>
           </section>
@@ -154,17 +209,29 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
               Continue Reading
             </h2>
             <div className="dashboard-history-grid mt-5 grid gap-4 md:grid-cols-3">
-              {data.stories.map((story) => (
-                <Link key={story.id} href={`/read/${story.slug}`} className="dashboard-history-item rounded-xl border border-border bg-surface-soft p-4 transition hover:border-accent hover:shadow-soft">
-                  <BookOpen className="h-5 w-5 text-accent2" />
-                  <h3 className="dashboard-history-item-title mt-3 font-semibold text-ink">{story.title}</h3>
-                  <p className="dashboard-history-item-chap mt-1 text-sm text-muted">
-                    Continue chapter {Math.min(story.freeChapters + 1, story.chapters)}
-                  </p>
+              {data.readingHistory.length ? data.readingHistory.map((history) => (
+                <Link key={history.id} href={`/read/${history.slug}`} className="dashboard-history-item rounded-xl border border-border bg-surface-soft p-4 transition hover:border-accent hover:shadow-soft flex flex-col justify-between min-h-[140px]">
+                  <div>
+                    <BookOpen className="h-5 w-5 text-accent2" />
+                    <h3 className="dashboard-history-item-title mt-3 font-semibold text-ink line-clamp-2">{history.title}</h3>
+                  </div>
+                  <div>
+                    <p className="dashboard-history-item-chap mt-2 text-xs text-muted font-mono uppercase tracking-wide">
+                      Chapter {history.chapterNumber}
+                    </p>
+                    {history.progress > 0 && (
+                      <div className="w-full bg-border rounded-full h-1 mt-2 overflow-hidden">
+                        <div className="bg-accent h-full rounded-full" style={{ width: `${history.progress}%` }} />
+                      </div>
+                    )}
+                  </div>
                 </Link>
-              ))}
+              )) : (
+                <p className="col-span-full rounded-lg bg-surface-soft p-4 text-sm text-muted">No recently read stories.</p>
+              )}
             </div>
           </section>
+          
           <section className="dashboard-security-status lm-card p-6">
             <h2 className="dashboard-card-heading flex items-center gap-2 font-display text-3xl font-semibold text-ink">
               <ShieldCheck className="h-6 w-6 text-accent2" />
@@ -185,22 +252,72 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
             Favorites and Ratings
           </h2>
           <div className="dashboard-favorites-grid mt-5 grid gap-4 md:grid-cols-3">
-            {data.stories.map((story) => (
-              <div key={story.id} className="dashboard-favorite-card rounded-xl bg-surface-soft p-4">
+            {data.favorites.length ? data.favorites.map((fav) => (
+              <Link key={fav.id} href={`/read/${fav.slug}`} className="dashboard-favorite-card rounded-xl bg-surface-soft p-4 border border-transparent hover:border-accent transition-all block">
                 <div className="dashboard-favorite-header flex items-center justify-between">
-                  <h3 className="dashboard-favorite-title font-semibold text-ink">{story.title}</h3>
+                  <h3 className="dashboard-favorite-title font-semibold text-ink line-clamp-1">{fav.title}</h3>
                   <Heart className="dashboard-favorite-icon h-4 w-4 fill-accent2 text-accent2" />
                 </div>
-                <p className="dashboard-favorite-genre mt-2 text-sm text-muted">{story.genre}</p>
-                <p className="dashboard-favorite-rating mt-3 text-sm font-semibold text-accent">
-                  <Star className="mr-1 inline h-4 w-4 fill-current" />
-                  Average rating: {story.rating.toFixed(1)}
+                <p className="dashboard-favorite-genre mt-2 text-xs text-muted font-mono uppercase tracking-wider">{fav.genre} · {fav.chapterTitle}</p>
+                <p className="dashboard-favorite-rating mt-3 text-sm font-semibold text-accent flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-current" />
+                  Average rating: {fav.rating.toFixed(1)}
                 </p>
-              </div>
-            ))}
+              </Link>
+            )) : (
+              <p className="col-span-full rounded-lg bg-surface-soft p-4 text-sm text-muted">No favorite stories bookmarked yet.</p>
+            )}
           </div>
         </section>
       </section>
+
+      {/* Security reset logout confirmation modal */}
+      {securityModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSecurityModalOpen(false); }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface-raised shadow-luxury p-6 animate-in fade-in zoom-in-95 duration-200 font-sans">
+            <div className="mb-4 flex flex-col items-center gap-3 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-full bg-danger/10 border border-danger/30">
+                <KeyRound className="h-7 w-7 text-danger" />
+              </div>
+              <h2 className="font-display text-xl font-semibold text-ink">
+                Secure Account Reset
+              </h2>
+              <p className="text-sm text-muted leading-6 max-w-xs">
+                To update your password or make changes to account security, you must log out first. We will send a secure password reset link to:
+                <span className="block font-semibold text-ink mt-1.5">{user.email}</span>
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                disabled={requestingReset}
+                onClick={handleSecurityReset}
+              >
+                {requestingReset ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                {requestingReset ? "Processing..." : "Request Reset & Log Out"}
+              </button>
+              <button
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-soft-ink transition hover:bg-surface-soft"
+                disabled={requestingReset}
+                onClick={() => setSecurityModalOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
@@ -29,13 +29,30 @@ import {
   Twitter,
   Github,
   Linkedin,
-  Star
+  Star,
+  Clock,
+  ChevronRight,
+  UserCircle,
+  LogOut,
+  Percent,
+  Instagram,
+  Youtube,
+  Quote,
+  Facebook
 } from "lucide-react";
 
 import { getActiveScheduledDiscount } from "@/lib/discount-campaigns";
 import { useToast } from "@/components/toast-context";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { type CoinPackage, type Story } from "@/lib/content";
+import { useTheme } from "@/components/theme-provider";
+import {
+  adminModules,
+  faqs,
+  securityLayers,
+  trustBadges,
+  type CoinPackage,
+  type Story
+} from "@/lib/content";
 
 // --- LAYOUT METADATA (Admin Panel integration) ---
 export const metadata = {
@@ -44,8 +61,59 @@ export const metadata = {
 };
 
 // --- TYPES ---
+type ApiResponse<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { message: string }; code?: string };
+
+type RazorpaySuccessResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayCheckoutConfig = {
+  paymentId: string;
+  keyId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  package: {
+    name: string;
+    coins: number;
+    bonusCoins: number;
+    price: number;
+  };
+  prefill: {
+    email: string;
+    name: string;
+  };
+};
+
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill: {
+    name?: string;
+    email?: string;
+  };
+  notes: Record<string, any>;
+  theme?: { color?: string };
+  modal?: {
+    ondismiss?: () => void;
+  };
+  method?: Record<string, boolean>;
+  handler: (response: RazorpaySuccessResponse) => void | Promise<void>;
+};
+
+
 interface AetherisCanvasProps {
   scrollProgress: number; // 0 to 1
+  canvasParticles: string[];
+  canvasClearBg: string;
 }
 
 interface Particle {
@@ -86,9 +154,159 @@ type HomePageProps = {
   } | null;
 };
 
-// --- RAZORPAY SCRIPT LOADER ---
-// Razorpay types are defined globally in classic.tsx
+// --- DYNAMIC PALETTE CALCULATIONS ---
+const getThemeColors = (theme: string) => {
+  // Velora's default theme in layout.tsx is "lm-theme-light".
+  // As requested, when the default theme (Light) or standard Dark is active, we render our custom
+  // premium Aetheris dark obsidian/cyan theme ONLY on this page.
+  // Other themes (Grey, Purple, Sunset, Forest) map to their respective color palettes.
+  switch (theme) {
+    case "lm-theme-grey":
+      return {
+        bg: "bg-[#18181b]",
+        text: "text-zinc-100",
+        textMuted: "text-zinc-400",
+        textDim: "text-zinc-500",
+        accentText: "text-emerald-400",
+        accentBorder: "border-emerald-500/20",
+        accentBg: "bg-emerald-950/10",
+        accentHover: "hover:bg-emerald-500 hover:text-white",
+        cardBg: "bg-zinc-900/30",
+        cardBorder: "border-zinc-800/40",
+        glowColor: "rgba(16, 185, 129, 0.12)",
+        textGradient: "from-emerald-400 via-zinc-200 to-cyan-400",
+        textGradientSimple: "from-emerald-400 to-cyan-400",
+        canvasParticles: [
+          "rgba(16, 185, 129, 0.85)", // Emerald
+          "rgba(6, 182, 212, 0.85)",  // Cyan
+          "rgba(244, 244, 245, 0.9)"   // Silver-white
+        ],
+        canvasClearBg: "rgba(24, 24, 27, 0.2)",
+        btnPrimary: "bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-500/10",
+        btnSecondary: "border border-emerald-500/20 bg-emerald-500/5 text-zinc-100 hover:bg-emerald-500 hover:text-white",
+        rawBg: "#18181b",
+        rawText: "#f4f4f5",
+        carouselAccent: "rgba(16, 185, 129, 0.18)",
+        glowBlobs: ["bg-emerald-950/10", "bg-zinc-800/10"]
+      };
+    case "lm-theme-purple":
+      return {
+        bg: "bg-[#120626]",
+        text: "text-fuchsia-100",
+        textMuted: "text-fuchsia-400/70",
+        textDim: "text-fuchsia-500/50",
+        accentText: "text-fuchsia-400",
+        accentBorder: "border-fuchsia-500/20",
+        accentBg: "bg-fuchsia-950/10",
+        accentHover: "hover:bg-fuchsia-500 hover:text-white",
+        cardBg: "bg-fuchsia-950/20",
+        cardBorder: "border-fuchsia-900/30",
+        glowColor: "rgba(217, 70, 239, 0.12)",
+        textGradient: "from-fuchsia-400 via-zinc-200 to-indigo-400",
+        textGradientSimple: "from-fuchsia-400 to-indigo-400",
+        canvasParticles: [
+          "rgba(217, 70, 239, 0.85)", // Fuchsia
+          "rgba(168, 85, 247, 0.85)", // Purple
+          "rgba(244, 244, 245, 0.9)"   // Silver-white
+        ],
+        canvasClearBg: "rgba(18, 6, 38, 0.2)",
+        btnPrimary: "bg-fuchsia-500 text-white hover:bg-fuchsia-600 hover:shadow-xl hover:shadow-fuchsia-500/10",
+        btnSecondary: "border border-fuchsia-500/20 bg-fuchsia-500/5 text-fuchsia-100 hover:bg-fuchsia-500 hover:text-white",
+        rawBg: "#120626",
+        rawText: "#fae8ff",
+        carouselAccent: "rgba(217, 70, 239, 0.18)",
+        glowBlobs: ["bg-fuchsia-950/15", "bg-purple-950/10"]
+      };
+    case "lm-theme-sunset":
+      return {
+        bg: "bg-[#1c0d02]",
+        text: "text-orange-100",
+        textMuted: "text-orange-400/70",
+        textDim: "text-orange-500/50",
+        accentText: "text-orange-400",
+        accentBorder: "border-orange-500/20",
+        accentBg: "bg-orange-950/10",
+        accentHover: "hover:bg-orange-500 hover:text-white",
+        cardBg: "bg-orange-950/20",
+        cardBorder: "border-orange-900/30",
+        glowColor: "rgba(249, 115, 22, 0.12)",
+        textGradient: "from-orange-400 via-zinc-200 to-red-400",
+        textGradientSimple: "from-orange-400 to-red-400",
+        canvasParticles: [
+          "rgba(249, 115, 22, 0.85)",  // Orange
+          "rgba(245, 158, 11, 0.85)",  // Amber
+          "rgba(254, 243, 199, 0.9)"   // Cream
+        ],
+        canvasClearBg: "rgba(28, 13, 2, 0.2)",
+        btnPrimary: "bg-orange-500 text-white hover:bg-orange-600 hover:shadow-xl hover:shadow-orange-500/10",
+        btnSecondary: "border border-orange-500/20 bg-orange-500/5 text-orange-100 hover:bg-orange-500 hover:text-white",
+        rawBg: "#1c0d02",
+        rawText: "#ffedd5",
+        carouselAccent: "rgba(249, 115, 22, 0.18)",
+        glowBlobs: ["bg-orange-950/15", "bg-red-950/10"]
+      };
+    case "lm-theme-forest":
+      return {
+        bg: "bg-[#021a11]",
+        text: "text-emerald-100",
+        textMuted: "text-emerald-400/70",
+        textDim: "text-emerald-500/50",
+        accentText: "text-emerald-400",
+        accentBorder: "border-emerald-500/20",
+        accentBg: "bg-emerald-950/10",
+        accentHover: "hover:bg-emerald-500 hover:text-white",
+        cardBg: "bg-emerald-950/20",
+        cardBorder: "border-emerald-900/30",
+        glowColor: "rgba(16, 185, 129, 0.12)",
+        textGradient: "from-emerald-400 via-zinc-200 to-lime-400",
+        textGradientSimple: "from-emerald-400 to-lime-400",
+        canvasParticles: [
+          "rgba(16, 185, 129, 0.85)",  // Emerald
+          "rgba(132, 204, 22, 0.85)",  // Lime
+          "rgba(240, 253, 244, 0.9)"   // Pale Green
+        ],
+        canvasClearBg: "rgba(2, 26, 17, 0.2)",
+        btnPrimary: "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-xl hover:shadow-emerald-600/10",
+        btnSecondary: "border border-emerald-500/20 bg-emerald-500/5 text-emerald-100 hover:bg-emerald-500 hover:text-white",
+        rawBg: "#021a11",
+        rawText: "#d1fae5",
+        carouselAccent: "rgba(16, 185, 129, 0.18)",
+        glowBlobs: ["bg-emerald-950/15", "bg-green-950/10"]
+      };
+    case "lm-theme-light":
+    default:
+      // Standard Aetheris theme (used for default theme on this page)
+      return {
+        bg: "bg-[#030305]",
+        text: "text-white",
+        textMuted: "text-white/50",
+        textDim: "text-white/40",
+        accentText: "text-teal-400",
+        accentBorder: "border-white/10",
+        accentBg: "bg-white/5",
+        accentHover: "hover:bg-white hover:text-black",
+        cardBg: "bg-white/5",
+        cardBorder: "border-white/10",
+        glowColor: "rgba(20, 184, 166, 0.12)",
+        textGradient: "from-teal-400 via-zinc-200 to-indigo-400",
+        textGradientSimple: "from-teal-400 to-indigo-400",
+        canvasParticles: [
+          "rgba(20, 184, 166, 0.85)", // Teal
+          "rgba(139, 92, 246, 0.85)", // Violet
+          "rgba(234, 179, 8, 0.85)"   // Amber/Gold
+        ],
+        canvasClearBg: "rgba(3, 3, 5, 0.2)",
+        btnPrimary: "bg-white text-black hover:bg-teal-500 hover:text-white shadow-xl shadow-teal-500/10",
+        btnSecondary: "border border-white/10 bg-white/5 text-white hover:bg-white hover:text-black",
+        rawBg: "#030305",
+        rawText: "#ffffff",
+        carouselAccent: "rgba(20, 184, 166, 0.18)",
+        glowBlobs: ["bg-indigo-900/10", "bg-teal-950/10"]
+      };
+  }
+};
 
+// --- RAZORPAY SCRIPT LOADER ---
 function loadRazorpayScript() {
   return new Promise<void>((resolve, reject) => {
     if (typeof window === "undefined") {
@@ -123,7 +341,7 @@ function loadRazorpayScript() {
 }
 
 // --- 3D PARTICLE CANVAS ENGINE ---
-function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
+function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: AetherisCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, active: false });
@@ -196,13 +414,11 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
       const y = r * Math.sin(phi) * Math.sin(theta);
       const z = r * Math.cos(phi);
 
-      let color = "rgba(20, 184, 166, 0.85)"; // Teal accent matching Velora
+      let color = canvasParticles[0];
       if (i % 3 === 1) {
-        color = "rgba(139, 92, 246, 0.85)"; // Violet
+        color = canvasParticles[1] || canvasParticles[0];
       } else if (i % 6 === 0) {
-        color = "rgba(234, 179, 8, 0.85)"; // Amber/Gold
-      } else if (i % 5 === 0) {
-        color = "rgba(244, 244, 245, 0.9)"; // Silver-white
+        color = canvasParticles[2] || canvasParticles[0];
       }
 
       particles.push({
@@ -226,7 +442,7 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
     let animationFrameId: number;
 
     const render = () => {
-      ctx.fillStyle = "rgba(3, 3, 5, 0.2)";
+      ctx.fillStyle = canvasClearBg;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const centerX = canvas.width / 2;
@@ -238,23 +454,23 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
       mouse.x += (mouse.targetX - mouse.x) * 0.04;
       mouse.y += (mouse.targetY - mouse.y) * 0.04;
 
-      let rotSpeedY = angleY + (mouse.active ? mouse.x * 0.000015 : 0);
-      let rotSpeedX = angleX + (mouse.active ? mouse.y * 0.000008 : 0);
+      const mouseRotY = mouse.active ? mouse.x * 0.0008 : 0;
+      const mouseRotX = mouse.active ? mouse.y * 0.0008 : 0;
 
-      rotSpeedY += currentScrollProgress * 0.012;
-      rotSpeedX += currentScrollProgress * 0.004;
+      const rotY = currentScrollProgress * 6.0 + mouseRotY;
+      const rotX = currentScrollProgress * 3.0 + mouseRotX;
 
-      const cosY = Math.cos(rotSpeedY);
-      const sinY = Math.sin(rotSpeedY);
-      const cosX = Math.cos(rotSpeedX);
-      const sinX = Math.sin(rotSpeedX);
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+      const cosX = Math.cos(rotX);
+      const sinX = Math.sin(rotX);
 
       const renderedPoints = particles.map((p, index) => {
-        let x1 = p.x * cosY - p.z * sinY;
-        let z1 = p.x * sinY + p.z * cosY;
+        let x1 = p.originalX * cosY - p.originalZ * sinY;
+        let z1 = p.originalX * sinY + p.originalZ * cosY;
 
-        let y2 = p.y * cosX - z1 * sinX;
-        let z2 = p.y * sinX + z1 * cosX;
+        let y2 = p.originalY * cosX - z1 * sinX;
+        let z2 = p.originalY * sinX + z1 * cosX;
 
         p.x = x1;
         p.y = y2;
@@ -370,7 +586,8 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
             ctx.beginPath();
             ctx.moveTo(pt1.sx, pt1.sy);
             ctx.lineTo(pt2.sx, pt2.sy);
-            ctx.strokeStyle = `rgba(139, 92, 246, ${alpha.toFixed(3)})`;
+            const lineCol = canvasParticles[1] || canvasParticles[0];
+            ctx.strokeStyle = lineCol.replace("0.85", String(alpha.toFixed(3)));
             ctx.stroke();
           }
         }
@@ -384,7 +601,7 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [scrollProgress]);
+  }, [scrollProgress, canvasParticles, canvasClearBg]);
 
   return (
     <div
@@ -399,6 +616,69 @@ function AetherisCanvas({ scrollProgress }: AetherisCanvasProps) {
     </div>
   );
 }
+
+// --- GUEST 3D STORY CAROUSEL SECTION ---
+function StoryCard({ story, featured = false, colors }: { story: Story; featured?: boolean; colors: any }) {
+  return (
+    <div
+      className={`group relative mx-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border transition-all duration-300 ${featured ? `${colors.cardBorder} shadow-2xl` : `${colors.cardBorder} opacity-60`
+        } bg-white/5 backdrop-blur-xl aspect-[3/4]`}
+    >
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="absolute inset-0 h-full w-full overflow-hidden">
+        {story.cover ? (
+          <Image
+            src={story.cover}
+            alt={story.title}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-zinc-950/80 text-white/20 text-7xl font-bold select-none font-mono">
+            {story.storyType?.toLowerCase() === "novel" ? "N" : "S"}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
+      </div>
+
+      <div className="absolute left-3 top-3 flex w-[calc(100%-24px)] items-start justify-between z-10">
+        {story.genre && (
+          <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-white backdrop-blur">
+            {story.genre}
+          </span>
+        )}
+        {story.rating && (
+          <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs font-medium text-amber-400 backdrop-blur-sm">
+            <Star className="h-3 w-3 fill-current" />
+            <span>{story.rating}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col pointer-events-none">
+        <h3 className="font-sans text-lg font-bold leading-tight text-white drop-shadow-lg line-clamp-2">
+          {story.title}
+        </h3>
+        {story.genre && (
+          <p className="text-[10px] font-mono font-medium text-white/60 drop-shadow-md mt-1 uppercase">
+            {story.genre}
+          </p>
+        )}
+      </div>
+
+      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <Link
+          href={`/read/${story.slug}`}
+          className="relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-5 py-2.5 text-xs font-mono font-bold tracking-wider text-black shadow-lg hover:scale-105 transition-all duration-300"
+        >
+          <span>READ STORY</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 
 // --- MAIN LAYOUT COMPONENT ---
 export default function AetherisSpatialLayout({
@@ -419,12 +699,25 @@ export default function AetherisSpatialLayout({
   const [telemetryTime, setTelemetryTime] = useState("");
   const [activeTab, setActiveTab] = useState("vault");
   const [checkoutPackageId, setCheckoutPackageId] = useState<string | null>(null);
+  const [checkoutSubscriptionId, setCheckoutSubscriptionId] = useState<string | null>(null);
 
-  // Fake / Real Secure neural channel uplink state
-  const [uplinkEmail, setUplinkEmail] = useState("");
-  const [uplinkStatus, setUplinkStatus] = useState<"idle" | "linking" | "decrypting" | "connected">(
-    "idle"
-  );
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const profileName = currentUser?.displayName || currentUser?.username || "Reader";
+  const profileInitial = profileName.charAt(0).toUpperCase();
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [profileOpen]);
+
+
 
   // Feedback form states
   const [feedbackName, setFeedbackName] = useState("");
@@ -435,7 +728,165 @@ export default function AetherisSpatialLayout({
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [dailyRewardClaiming, setDailyRewardClaiming] = useState(false);
+  const [dailyRewardClaimed, setDailyRewardClaimed] = useState(false);
   const { showToast } = useToast();
+
+  // Dynamic Theme Colors
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+
+  const isGuest = !isAuthenticated;
+  const isAdmin = userRole === "ADMIN";
+
+  // Subscription settings and packages
+  const settings = monetizationSettings || {};
+  const subCoinsPerDay = settings.subCoinsPerDay ?? 10;
+  const weeklyBasePrice = settings.weeklyBasePrice ?? 150;
+  const monthlyBasePrice = settings.monthlyBasePrice ?? 450;
+  const yearlyBasePrice = settings.yearlyBasePrice ?? 4000;
+  const monthlyUpgradeDiscount = settings.monthlyUpgradeDiscount ?? 5;
+  const yearlyUpgradeDiscount = settings.yearlyUpgradeDiscount ?? 25;
+
+  const subscriptionPackages = [
+    {
+      id: "sub_weekly",
+      name: "Weekly Pass",
+      description: "Weekly membership",
+      dailyCoins: subCoinsPerDay,
+      totalCoins: subCoinsPerDay * 7,
+      costPerCoin: (weeklyBasePrice / (subCoinsPerDay * 7)).toFixed(2),
+      price: weeklyBasePrice,
+      badge: "Best Weekly Rate",
+      period: "week",
+    },
+    {
+      id: "sub_monthly",
+      name: "Monthly Pass",
+      description: "Monthly membership",
+      dailyCoins: subCoinsPerDay,
+      totalCoins: subCoinsPerDay * 30,
+      costPerCoin: (Math.round(monthlyBasePrice * (1 - monthlyUpgradeDiscount / 100)) / (subCoinsPerDay * 30)).toFixed(2),
+      price: Math.round(monthlyBasePrice * (1 - monthlyUpgradeDiscount / 100)),
+      badge: "Popular Choice",
+      period: "month",
+    },
+    {
+      id: "sub_yearly",
+      name: "Yearly Pass",
+      description: "Annual membership",
+      dailyCoins: subCoinsPerDay,
+      totalCoins: subCoinsPerDay * 365,
+      costPerCoin: (Math.round(yearlyBasePrice * (1 - yearlyUpgradeDiscount / 100)) / (subCoinsPerDay * 365)).toFixed(2),
+      price: Math.round(yearlyBasePrice * (1 - yearlyUpgradeDiscount / 100)),
+      badge: "Best Value Pass",
+      period: "year",
+    }
+  ];
+
+  const handleSubscriptionSelect = async (pack: typeof subscriptionPackages[0]) => {
+    if (!isAuthenticated) {
+      window.location.href = "/auth";
+      return;
+    }
+    setCheckoutSubscriptionId(pack.id);
+    try {
+      const response = await fetch("/api/wallet/subscription/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planType: pack.period === "week" ? "WEEKLY" : pack.period === "month" ? "MONTHLY" : "YEARLY"
+        })
+      });
+      const payload = (await response.json()) as ApiResponse<{
+        checkout: RazorpayCheckoutConfig & { subscriptionId: string; plan: { type: string; dailyCoins: number; periodDays: number; totalCoins: number; price: number } };
+      }>;
+
+      if (!payload.ok) {
+        throw new Error(payload.error.message);
+      }
+
+      const { checkout } = payload.data;
+      await loadRazorpayScript();
+
+      if (!(window as any).Razorpay) {
+        throw new Error("Razorpay Checkout did not load.");
+      }
+
+      const razorpay = new (window as any).Razorpay({
+        key: checkout.keyId,
+        amount: checkout.amount,
+        currency: checkout.currency,
+        name: "Velora Fiction",
+        description: `${checkout.plan.type} Subscription — ${checkout.plan.periodDays} days`,
+        order_id: checkout.orderId,
+        prefill: {
+          name: checkout.prefill.name || currentUser?.username || undefined,
+          email: checkout.prefill.email || currentUser?.email || undefined
+        },
+        notes: {
+          paymentId: checkout.paymentId,
+          subscriptionId: checkout.subscriptionId,
+          planType: checkout.plan.type
+        },
+        method: {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false
+        },
+        theme: { color: "#14b8a6" },
+        modal: {
+          ondismiss: () => setCheckoutSubscriptionId(null)
+        },
+        handler: async (razorpayResponse: RazorpaySuccessResponse) => {
+          try {
+            const verifyResponse = await fetch("/api/wallet/subscription/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                paymentId: checkout.paymentId,
+                subscriptionId: checkout.subscriptionId,
+                ...razorpayResponse
+              })
+            });
+            const verifyPayload = (await verifyResponse.json()) as ApiResponse<{
+              status: "activated" | "already_active";
+              subscriptionId: string;
+              coinsCredited: number;
+              walletBalance: number;
+              expiresAt: Date;
+            }>;
+
+            if (!verifyPayload.ok) {
+              throw new Error(verifyPayload.error.message);
+            }
+
+            window.location.href = "/dashboard";
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : "Subscription could not be verified.", "error");
+            setCheckoutSubscriptionId(null);
+          }
+        }
+      });
+
+      razorpay.open();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to start subscription payment.", "error");
+      setCheckoutSubscriptionId(null);
+    }
+  };
+
+  const handleDailyCheckIn = () => {
+    if (dailyRewardClaimed || dailyRewardClaiming) return;
+    setDailyRewardClaiming(true);
+    showToast("Initiating neural synchronization...", "info");
+    setTimeout(() => {
+      setDailyRewardClaiming(false);
+      setDailyRewardClaimed(true);
+      showToast("Sync success! Claimed 5 free loyalty coins.", "success");
+    }, 1800);
+  };
 
   // Monitor scroll progress and navbar visibility
   useEffect(() => {
@@ -476,7 +927,7 @@ export default function AetherisSpatialLayout({
     return () => clearInterval(interval);
   }, []);
 
-  // Sync scroll progress on Hero Social HUD bar translations
+  // Sync scroll progress on Hero social bars translations
   const textTranslateY = scrollProgress * -150;
   const opacityFade = Math.max(0, 1 - scrollProgress * 1.8);
 
@@ -506,20 +957,6 @@ export default function AetherisSpatialLayout({
   };
 
   // --- Handlers ---
-  const handleUplinkConnect = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!uplinkEmail) return;
-
-    setUplinkStatus("linking");
-    setTimeout(() => {
-      setUplinkStatus("decrypting");
-    }, 1200);
-
-    setTimeout(() => {
-      setUplinkStatus("connected");
-      showToast("Neural channel uplink configured successfully!", "success");
-    }, 2800);
-  };
 
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -611,9 +1048,9 @@ export default function AetherisSpatialLayout({
         },
         method: {
           upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
+          card: false,
+          netbanking: false,
+          wallet: false
         },
         theme: { color: "#14b8a6" },
         modal: {
@@ -665,18 +1102,24 @@ export default function AetherisSpatialLayout({
   };
 
   // Scheduled Campaign Logic
-  const settings = monetizationSettings || {};
   const activeDiscountResult = getActiveScheduledDiscount(settings, new Date());
   const isCampaignLive = Boolean(activeDiscountResult);
 
   // Navigation Links
-  const menuItems = [
-    { label: "Tactile Grid", href: "#features" },
-    { label: "Telemetry", href: "#showcase" },
-    { label: "Chronicles", href: "#story" },
-    { label: "Coin Forge", href: "#coins" },
-    { label: "Neural Uplink", href: "#cta" }
-  ];
+  const menuItems = [];
+
+  if (isAdmin) {
+    menuItems.push({ label: "Tactile Grid", href: "#features" });
+    menuItems.push({ label: "Telemetry", href: "#showcase" });
+  }
+
+  menuItems.push({ label: "Chronicles", href: "#story" });
+
+  if (isAdmin) {
+    menuItems.push({ label: "Protection", href: "#admin-protection" });
+    menuItems.push({ label: "Admin Console", href: "/admin" });
+  }
+  menuItems.push({ label: "Neural Uplink", href: "#cta" });
 
   // Showcase spec maps
   const showcaseTabs = {
@@ -716,38 +1159,25 @@ export default function AetherisSpatialLayout({
   const SelectedIcon = activeShowcase.icon;
 
   return (
-    <div className="relative min-h-screen w-full bg-[#030305] text-white selection:bg-teal-500/20 selection:text-teal-200 overflow-x-hidden font-sans">
-      {/* CUSTOM AMBIENT STYLE INJECTIONS (Keeping layout independent from globals.css changes) */}
-      <style jsx global>{`
+    <div
+      className={`relative min-h-screen w-full transition-colors duration-700 ${colors.bg} ${colors.text} selection:bg-teal-500/20 selection:text-teal-200 overflow-x-hidden font-sans`}
+    >
+      {/* SCOPED CUSTOM ANIMATION KEYFRAMES AND SCROLL UTILITIES */}
+      <style>{`
         html {
           scroll-behavior: smooth;
         }
         @keyframes spin-slow {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         @keyframes spin-reverse {
-          0% {
-            transform: rotate(360deg);
-          }
-          100% {
-            transform: rotate(0deg);
-          }
+          0% { transform: rotate(360deg); }
+          100% { transform: rotate(0deg); }
         }
         @keyframes pulse-slow {
-          0%,
-          100% {
-            opacity: 0.15;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.25;
-            transform: scale(1.06);
-          }
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.25; transform: scale(1.05); }
         }
         .animate-spin-slow {
           animation: spin-slow 40s linear infinite;
@@ -766,10 +1196,14 @@ export default function AetherisSpatialLayout({
         }
       `}</style>
 
-      {/* FIXED 3D PARTICLE ENGINE BACKDROP */}
+      {/* FIXED 3D PARTICLE ENGINE BACKDROP (Theme Aware particles & clear color) */}
       <div className="fixed inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
-        <AetherisCanvas scrollProgress={scrollProgress} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#030305] via-transparent to-[#030305] opacity-50" />
+        <AetherisCanvas
+          scrollProgress={scrollProgress}
+          canvasParticles={colors.canvasParticles}
+          canvasClearBg={colors.canvasClearBg}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-black/20 opacity-40 pointer-events-none" />
       </div>
 
       {/* HEADER & MOBILE NAVIGATION DRAWER */}
@@ -780,11 +1214,10 @@ export default function AetherisSpatialLayout({
           opacity: visible ? 1 : 0
         }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 border-b ${
-          scrolled
-            ? "bg-[#030305]/80 backdrop-blur-xl border-zinc-800/40 py-4 shadow-xl shadow-black/20"
-            : "bg-transparent border-transparent py-6"
-        }`}
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 border-b ${scrolled
+          ? "bg-[#030305]/80 backdrop-blur-xl border-zinc-800/40 py-4 shadow-xl shadow-black/20"
+          : "bg-transparent border-transparent py-6"
+          }`}
       >
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-4 group">
@@ -802,19 +1235,29 @@ export default function AetherisSpatialLayout({
           </Link>
 
           <nav className="hidden lg:flex items-center gap-8 text-[10px] font-semibold tracking-[0.2em] uppercase text-white/60">
-            {menuItems.map((item, idx) => (
-              <a
-                key={idx}
-                href={item.href}
-                className="hover:text-white hover:scale-105 transition-all duration-300"
-              >
-                {item.label}
-              </a>
-            ))}
+            {menuItems.map((item, idx) => {
+              const isInternal = item.href.startsWith("/");
+              return isInternal ? (
+                <Link
+                  key={idx}
+                  href={item.href}
+                  className="hover:text-white hover:scale-105 transition-all duration-300"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <a
+                  key={idx}
+                  href={item.href}
+                  className="hover:text-white hover:scale-105 transition-all duration-300"
+                >
+                  {item.label}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="hidden md:flex items-center gap-6">
-            <ThemeSwitcher compact />
 
             {/* Live mainframe node clock */}
             <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-zinc-900 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest">
@@ -827,29 +1270,96 @@ export default function AetherisSpatialLayout({
               <span className="text-teal-400">{telemetryTime || "12:00:00"}</span>
             </div>
 
+            <ThemeSwitcher compact />
+
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/dashboard"
-                  className="px-5 py-2 border border-white/10 bg-white/5 backdrop-blur-md rounded-full text-xs font-mono tracking-widest uppercase text-white hover:bg-white hover:text-black transition-all duration-300"
-                >
-                  Dashboard
-                </Link>
+              <div className="relative flex items-center gap-4" ref={profileMenuRef}>
                 <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="p-2 border border-red-500/30 bg-red-950/10 hover:bg-red-500 hover:text-white transition-colors rounded-full text-red-400 text-xs font-mono tracking-widest uppercase px-4"
+                  type="button"
+                  onClick={() => setProfileOpen((prev) => !prev)}
+                  className={`relative w-9 h-9 rounded-full border ${colors.cardBorder} bg-white/5 flex items-center justify-center hover:border-teal-400 transition-colors duration-300 shadow-lg`}
+                  aria-expanded={profileOpen}
+                  aria-label="Open profile menu"
                 >
-                  {isLoggingOut ? "Ending..." : "Logout"}
+                  <span className={`w-7 h-7 rounded-full bg-gradient-to-br ${colors.textGradientSimple} text-black font-mono font-bold text-xs flex items-center justify-center shadow-inner`}>
+                    {profileInitial}
+                  </span>
                 </button>
+
+                <AnimatePresence>
+                  {profileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+                      className={`absolute right-0 top-[calc(100%+12px)] w-72 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-2xl p-5 text-left shadow-2xl z-50`}
+                    >
+                      <div className="flex items-center gap-3.5 border-b border-white/10 pb-4 mb-4 select-none">
+                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br ${colors.textGradientSimple} text-black font-mono text-sm font-semibold shadow-inner`}>
+                          {profileInitial}
+                        </span>
+                        <div className="min-w-0 flex flex-col">
+                          <p className="truncate font-sans font-bold text-sm text-white">{profileName}</p>
+                          <p className="truncate font-mono text-[10px] text-white/50 mt-0.5">{currentUser?.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3.5 py-1 text-xs font-sans">
+                        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+                          <span className="text-white/40">Username</span>
+                          <span className="truncate font-mono font-semibold text-white">{currentUser?.username}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+                          <span className="text-white/40">Role</span>
+                          <span className="rounded-full border border-teal-500/20 bg-teal-500/5 px-3 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-teal-400">
+                            {currentUser?.role}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex flex-col gap-2.5">
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setProfileOpen(false)}
+                          className="w-full py-2.5 rounded-full bg-white text-black font-semibold text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-300 text-center flex items-center justify-center gap-2"
+                        >
+                          <UserCircle className="h-4 w-4" />
+                          Dashboard
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            handleLogout();
+                          }}
+                          disabled={isLoggingOut}
+                          className="w-full py-2.5 rounded-full border border-red-500/30 bg-red-950/10 hover:bg-red-500 hover:text-white transition-all duration-300 text-red-400 text-xs font-mono tracking-widest uppercase flex items-center justify-center gap-2"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          {isLoggingOut ? "Ending..." : "Logout"}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
-              <Link
-                href="/auth"
-                className="px-6 py-2 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 shadow-xl"
-              >
-                Initialize
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/auth"
+                  className={`px-5 py-2 rounded-full text-xs font-mono tracking-widest uppercase border border-white/10 bg-white/5 text-white hover:bg-white hover:text-black transition-all duration-300`}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/auth?mode=register"
+                  className={`px-5 py-2 rounded-full text-xs font-mono tracking-widest uppercase bg-white text-black hover:bg-teal-500 hover:text-white transition-all duration-300 font-bold`}
+                >
+                  Register
+                </Link>
+              </div>
             )}
           </div>
 
@@ -874,16 +1384,28 @@ export default function AetherisSpatialLayout({
               className="lg:hidden w-full border-t border-zinc-800 bg-[#030305]/95 backdrop-blur-2xl overflow-hidden"
             >
               <div className="px-6 py-8 flex flex-col gap-5">
-                {menuItems.map((item, idx) => (
-                  <a
-                    key={idx}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm uppercase tracking-widest text-zinc-300 hover:text-teal-400 transition-colors py-1"
-                  >
-                    {item.label}
-                  </a>
-                ))}
+                {menuItems.map((item, idx) => {
+                  const isInternal = item.href.startsWith("/");
+                  return isInternal ? (
+                    <Link
+                      key={idx}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-sm uppercase tracking-widest text-zinc-300 hover:text-teal-400 transition-colors py-1"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <a
+                      key={idx}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-sm uppercase tracking-widest text-zinc-300 hover:text-teal-400 transition-colors py-1"
+                    >
+                      {item.label}
+                    </a>
+                  );
+                })}
                 <div className="h-[1px] bg-zinc-800/60 my-2" />
                 <div className="flex items-center justify-between font-mono text-[9px] tracking-wider text-zinc-500">
                   <span className="flex items-center gap-1.5">
@@ -912,13 +1434,22 @@ export default function AetherisSpatialLayout({
                     </button>
                   </div>
                 ) : (
-                  <Link
-                    href="/auth"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-full text-center py-3 rounded-lg text-xs font-mono tracking-wider uppercase font-semibold bg-white text-black hover:bg-teal-500 hover:text-white transition-all"
-                  >
-                    Initialize Portal
-                  </Link>
+                  <div className="flex flex-col gap-3">
+                    <Link
+                      href="/auth"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 rounded-lg text-xs font-mono tracking-wider uppercase font-semibold bg-white/10 text-white"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/auth?mode=register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 rounded-lg text-xs font-mono tracking-wider uppercase font-semibold bg-white text-black"
+                    >
+                      Register
+                    </Link>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -926,22 +1457,22 @@ export default function AetherisSpatialLayout({
         </AnimatePresence>
       </motion.header>
 
-      {/* BODY OVERLAYS */}
+      {/* BODY SEGMENTS */}
       <div className="relative z-10 flex flex-col w-full">
-        {/* --- 1. CINEMATIC HERO GATE --- */}
+        {/* --- 1. HERO GATE --- */}
         <section
           id="hero"
-          className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303]/20 px-6 md:px-12 pt-24"
+          className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303]/10 px-6 md:px-12 pt-24"
         >
-          {/* Subtle Ambient Background Gradient Lighting */}
+          {/* Ambient Glows */}
           <div className="absolute inset-0 pointer-events-none z-0">
             <motion.div
               style={{ y: scrollProgress * -150, opacity: opacityFade }}
-              className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-900/10 rounded-full blur-[130px] animate-pulse-slow"
+              className={`absolute top-[-10%] left-[-10%] w-[60%] h-[60%] ${colors.glowBlobs[0]} rounded-full blur-[130px] animate-pulse-slow`}
             />
             <motion.div
               style={{ y: scrollProgress * 150, opacity: opacityFade }}
-              className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-950/10 rounded-full blur-[110px] animate-pulse-slow"
+              className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] ${colors.glowBlobs[1]} rounded-full blur-[110px] animate-pulse-slow`}
             />
             <div
               className="absolute inset-0 opacity-[0.02]"
@@ -949,53 +1480,58 @@ export default function AetherisSpatialLayout({
                 backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
                 backgroundSize: "40px 40px"
               }}
-            ></div>
+            />
           </div>
 
-          {/* Left HUD Vertical Social Bar */}
+          {/* Socials HUD */}
           <motion.div
             style={{ y: textTranslateY * 0.5, opacity: opacityFade }}
             className="absolute hidden xl:flex top-1/2 left-8 -translate-y-1/2 flex-col gap-12 text-[9px] font-bold tracking-[0.35em] text-white/30 uppercase z-10 [writing-mode:vertical-lr] rotate-180"
           >
-            <a
-              href={writerNote?.twitter || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-teal-400 transition-colors cursor-pointer"
-            >
-              TWITTER
-            </a>
-            <a
-              href={writerNote?.instagram || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-teal-400 transition-colors cursor-pointer"
-            >
-              INSTAGRAM
-            </a>
-            <a
-              href={writerNote?.facebook || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-teal-400 transition-colors cursor-pointer"
-            >
-              FACEBOOK
-            </a>
+            {writerNote?.twitter && (
+              <a
+                href={writerNote.twitter}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-teal-400 transition-colors"
+              >
+                TWITTER
+              </a>
+            )}
+            {writerNote?.instagram && (
+              <a
+                href={writerNote.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-teal-400 transition-colors"
+              >
+                INSTAGRAM
+              </a>
+            )}
+            {writerNote?.facebook && (
+              <a
+                href={writerNote.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-teal-400 transition-colors"
+              >
+                FACEBOOK
+              </a>
+            )}
           </motion.div>
 
-          {/* Right HUD Step Indicator */}
+          {/* Step indicator HUD */}
           <motion.div
             style={{ y: -textTranslateY * 0.5, opacity: opacityFade }}
             className="absolute hidden xl:flex top-1/2 right-8 -translate-y-1/2 z-10"
           >
             <div className="flex flex-col items-center gap-4">
-              <div className="w-[1px] h-16 bg-white/10"></div>
+              <div className="w-[1px] h-16 bg-white/10" />
               <span className="text-[10px] font-mono text-teal-400 tracking-tighter">01/05</span>
-              <div className="w-[1px] h-16 bg-white/10"></div>
+              <div className="w-[1px] h-16 bg-white/10" />
             </div>
           </motion.div>
 
-          {/* Main Hero Content */}
           <div className="relative max-w-5xl mx-auto z-10 text-center flex flex-col items-center">
             <motion.div
               variants={containerVariants}
@@ -1004,56 +1540,52 @@ export default function AetherisSpatialLayout({
               style={{ y: textTranslateY, opacity: opacityFade }}
               className="flex flex-col items-center select-none"
             >
-              {/* Subtle Accent Pill */}
               <motion.div
                 variants={itemVariants}
                 className="text-[11px] uppercase tracking-[0.6em] mb-6 text-teal-400 font-bold"
               >
-                CHAPTER 01: INITIATION
+                ✦ The Premium Fiction Convergence ✦
               </motion.div>
 
-              {/* Majestic Headline (Extra-light sans + Medium dynamic italic) */}
               <motion.h1
                 variants={itemVariants}
                 className="font-sans text-[50px] sm:text-[75px] md:text-[95px] lg:text-[105px] font-extralight tracking-[-0.04em] leading-[0.85] mb-8 text-white text-center"
               >
                 VELORA<br />
-                <span className="font-medium italic tracking-[-0.02em] ml-12 sm:ml-20 bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-zinc-200 to-indigo-400">
+                <span
+                  className={`font-medium italic tracking-[-0.02em] ml-12 sm:ml-20 bg-clip-text text-transparent bg-gradient-to-r ${colors.textGradient}`}
+                >
                   BEYOND
                 </span>
               </motion.h1>
 
-              {/* Supporting Subheading */}
               <motion.p
                 variants={itemVariants}
                 className="max-w-lg text-white/50 text-[13px] sm:text-[14px] leading-relaxed tracking-wide font-light mb-12 px-4"
               >
-                Immerse yourself in a layered digital odyssey where premium fiction meets spatial design. Own your library, support original creators, and unlock chapters in a futuristic reader.
+                Experience a dynamic reading library. Purchase coin packages, support original authors, and own premium archives forever.
               </motion.p>
 
-              {/* Action CTAs */}
               <motion.div
                 variants={itemVariants}
                 className="flex flex-col sm:flex-row items-center gap-5 justify-center w-full sm:w-auto"
               >
                 <a
-                  href="#story"
-                  className="px-8 py-3.5 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 shadow-xl shadow-teal-500/10 cursor-pointer"
+                  href={isAuthenticated ? "#story-library" : "#story"}
+                  className={`px-8 py-3.5 ${colors.btnPrimary} font-bold rounded-full text-xs font-mono tracking-widest uppercase transition-all duration-300 cursor-pointer`}
                 >
                   Examine Archives
                 </a>
-
                 <a
-                  href="#coins"
-                  className="px-8 py-3.5 border border-white/10 bg-white/5 backdrop-blur-md rounded-full text-xs font-mono tracking-widest uppercase text-white hover:bg-white hover:text-black transition-all duration-300 cursor-pointer"
+                  href="#features"
+                  className={`px-8 py-3.5 ${colors.btnSecondary} font-bold rounded-full text-xs font-mono tracking-widest uppercase transition-all duration-300 cursor-pointer`}
                 >
-                  Forge Wallet
+                  Explore Features
                 </a>
               </motion.div>
             </motion.div>
           </div>
 
-          {/* Bottom Scene Indicators */}
           <div className="absolute bottom-10 left-6 right-6 md:left-12 md:right-12 z-10 flex items-end justify-between select-none pointer-events-none">
             <div className="flex items-center gap-6">
               <div className="flex flex-col items-start gap-1">
@@ -1062,31 +1594,28 @@ export default function AetherisSpatialLayout({
                 </span>
                 <div className="flex gap-1 items-center">
                   <div
-                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                      scrollProgress < 0.25 ? "bg-teal-400" : "border border-white/20"
-                    }`}
-                  ></div>
-                  <div className="w-10 h-[1.5px] bg-white/10"></div>
+                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${scrollProgress < 0.2 ? "bg-teal-400" : "border border-white/20"
+                      }`}
+                  />
+                  <div className="w-10 h-[1.5px] bg-white/10" />
                   <div
-                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                      scrollProgress >= 0.25 && scrollProgress < 0.75
-                        ? "bg-teal-400"
-                        : "border border-white/20"
-                    }`}
-                  ></div>
-                  <div className="w-10 h-[1.5px] bg-white/10"></div>
+                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${scrollProgress >= 0.2 && scrollProgress < 0.75
+                      ? "bg-teal-400"
+                      : "border border-white/20"
+                      }`}
+                  />
+                  <div className="w-10 h-[1.5px] bg-white/10" />
                   <div
-                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                      scrollProgress >= 0.75 ? "bg-teal-400" : "border border-white/20"
-                    }`}
-                  ></div>
+                    className={`w-2 h-2 rounded-full transition-colors duration-500 ${scrollProgress >= 0.75 ? "bg-teal-400" : "border border-white/20"
+                      }`}
+                  />
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="flex flex-col gap-2 items-center">
-                <div className="w-[1px] h-10 bg-gradient-to-b from-transparent via-teal-400 to-transparent"></div>
+                <div className="w-[1px] h-10 bg-gradient-to-b from-transparent via-teal-400 to-transparent" />
                 <span className="text-[9px] [writing-mode:vertical-lr] rotate-180 uppercase tracking-[0.4em] text-white/40">
                   Explore Depth
                 </span>
@@ -1095,381 +1624,384 @@ export default function AetherisSpatialLayout({
           </div>
         </section>
 
-        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
-
-        {/* --- 2. TACTILE FEATURES GRID --- */}
-        <section
-          id="features"
-          className="relative py-28 md:py-36 w-full bg-[#030305]/60 backdrop-blur-sm overflow-hidden"
-        >
-          {/* Ambient Glows */}
-          <div className="absolute top-1/4 left-[-10%] w-[35rem] h-[35rem] rounded-full bg-teal-950/10 blur-[130px] pointer-events-none" />
-          <div className="absolute bottom-1/4 right-[-10%] w-[30rem] h-[30rem] rounded-full bg-indigo-950/10 blur-[150px] pointer-events-none" />
-
-          {/* Section Divider Line */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-32 bg-gradient-to-b from-transparent via-teal-500/25 to-transparent pointer-events-none" />
-
-          <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-            {/* Header Block */}
-            <div className="flex flex-col items-center text-center mb-20 md:mb-28">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest uppercase mb-5">
-                <Orbit className="w-3.5 h-3.5 text-teal-400 animate-spin-slow" />
-                <span>Tactile Systems Architecture</span>
-              </div>
-              <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                Designed for Immersion
-              </h2>
-              <p className="max-w-xl font-sans text-sm md:text-base text-zinc-400 font-normal mt-4 leading-relaxed">
-                Every component in the Velora ecosystem is engineered to support clean readability, robust piracy protection, and creator-focused token systems.
-              </p>
-            </div>
-
-            {/* Grid of Perspective Hover Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                {
-                  id: "f1",
-                  icon: Shield,
-                  title: "DRM-Shield Encryption",
-                  description:
-                    "Protects original author assets with advanced client-side overlays and screen protection systems.",
-                  category: "Core Security",
-                  glowColor: "rgba(20, 184, 166, 0.12)"
-                },
-                {
-                  id: "f2",
-                  icon: Zap,
-                  title: "Instant Chapter Uplink",
-                  description:
-                    "Chapters unlock instantly across devices. Enjoy clean reading without ads or distraction panels.",
-                  category: "Performance",
-                  glowColor: "rgba(139, 92, 246, 0.12)"
-                },
-                {
-                  id: "f3",
-                  icon: Crown,
-                  title: "Crystalline Archives",
-                  description:
-                    "Once you unlock a chapter with coins, it remains bound to your reader library for permanent access.",
-                  category: "Library Control",
-                  glowColor: "rgba(234, 179, 8, 0.08)"
-                },
-                {
-                  id: "f4",
-                  icon: Cpu,
-                  title: "Fair Share Economy",
-                  description:
-                    "A transparent token economy that rewards creators directly. Your coins feed directly into creator workspaces.",
-                  category: "Token Mechanics",
-                  glowColor: "rgba(14, 116, 144, 0.15)"
-                }
-              ].map((card, idx) => {
-                // Inline card mouse tracker logic
-                const cardRef = useRef<HTMLDivElement | null>(null);
-                const [rotate, setRotate] = useState({ x: 0, y: 0 });
-                const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
-                const [isHovered, setIsHovered] = useState(false);
-                const CardIcon = card.icon;
-
-                const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-                  if (!cardRef.current) return;
-                  const rect = cardRef.current.getBoundingClientRect();
-                  const x = (e.clientX - rect.left) / rect.width - 0.5;
-                  const y = (e.clientY - rect.top) / rect.height - 0.5;
-
-                  setRotate({ x: -y * 18, y: x * 18 });
-                  setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                };
-
-                const handleMouseLeave = () => {
-                  setIsHovered(false);
-                  setRotate({ x: 0, y: 0 });
-                };
-
-                return (
-                  <motion.div
-                    key={card.id}
-                    initial={{
-                      y: 75,
-                      opacity: 0,
-                      rotateX: 18,
-                      rotateY: -5,
-                      scale: 0.94,
-                      filter: "blur(6px)"
-                    }}
-                    whileInView={{
-                      y: 0,
-                      opacity: 1,
-                      rotateX: 0,
-                      rotateY: 0,
-                      scale: 1,
-                      filter: "blur(0px)"
-                    }}
-                    viewport={{ once: true, margin: "-50px" }}
-                    transition={{ duration: 1.2, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                    className="aetheris-perspective transform-gpu"
-                  >
-                    <div
-                      ref={cardRef}
-                      onMouseMove={handleMouseMove}
-                      onMouseEnter={() => setIsHovered(true)}
-                      onMouseLeave={handleMouseLeave}
-                      style={{
-                        transform: isHovered
-                          ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.025)`
-                          : "rotateX(0deg) rotateY(0deg) scale(1)",
-                        transition: isHovered
-                          ? "none"
-                          : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
-                      }}
-                      className="relative h-full flex flex-col justify-between p-8 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg shadow-black/40 hover:border-teal-400/40 hover:shadow-teal-950/10 transition-all duration-300 min-h-[260px]"
-                    >
-                      <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-
-                      {/* Interactive Radial Glow overlay */}
-                      <div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
-                        style={{
-                          background: `radial-gradient(circle 220px at ${glowPos.x}px ${glowPos.y}px, ${card.glowColor}, transparent 80%)`
-                        }}
-                      />
-
-                      <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 group-hover:border-teal-500/30 transition-all duration-500 shadow-inner">
-                            <CardIcon className="w-6 h-6 text-teal-400 group-hover:scale-110 group-hover:text-teal-300 transition-all duration-500" />
-                          </div>
-                          <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest italic font-mono">
-                            {card.category}
-                          </span>
-                        </div>
-
-                        <h3 className="font-sans text-[15px] font-bold text-white tracking-tight mb-2.5 group-hover:text-teal-200 transition-colors">
-                          {card.title}
-                        </h3>
-                        <p className="font-sans text-[12px] text-white/70 leading-relaxed font-light group-hover:text-white transition-colors">
-                          {card.description}
-                        </p>
-                      </div>
-
-                      <div className="mt-6 w-6 h-[1.5px] bg-white/30 group-hover:w-full transition-all duration-500 ease-out" />
-                    </div>
-                  </motion.div>
-                );
-              })}
+        {/* --- ADMIN: TRUST BADGES STRIP --- */}
+        {isAdmin && trustBadges.length > 0 && (
+          <div className={`w-full border-y ${colors.cardBorder} bg-white/5 py-4 backdrop-blur-md relative z-20`}>
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4 px-6">
+              {trustBadges.map((badge) => (
+                <div
+                  key={badge.label}
+                  className={`flex items-center gap-2.5 rounded-full border ${colors.cardBorder} bg-white/5 px-4.5 py-2 text-xs font-semibold text-white/80`}
+                >
+                  <badge.icon className="h-4 w-4 text-teal-400" />
+                  <span>{badge.label}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
+        )}
 
         <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
 
-        {/* --- 3. IMMERSIVE SHOWCASE STATE CONTROLLER --- */}
-        <section
-          id="showcase"
-          className="relative py-28 md:py-36 w-full bg-[#030305]/30 overflow-hidden"
-        >
-          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-96 h-96 rounded-full bg-teal-950/5 blur-[120px] pointer-events-none" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-violet-950/5 blur-[120px] pointer-events-none" />
+        {/* --- EXTRA: FEATURES GRID (Visible to all) --- */}
+        {isAdmin && (
+          <section
+            id="features"
+            className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10"
+          >
+            <div className="absolute top-1/4 left-[-10%] w-[35rem] h-[35rem] rounded-full bg-teal-950/5 blur-[130px] pointer-events-none" />
+            <div className="absolute bottom-1/4 right-[-10%] w-[30rem] h-[30rem] rounded-full bg-indigo-950/5 blur-[150px] pointer-events-none" />
 
-          <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-            {/* Header Block */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col md:flex-row md:items-end justify-between mb-16 md:mb-24 gap-6"
-            >
-              <div className="max-w-xl">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-400 font-mono text-[9px] tracking-widest uppercase mb-5">
-                  <Activity className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
-                  <span>Modular State Explorer</span>
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+              <div className="flex flex-col items-center text-center mb-20 md:mb-28 select-none">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest uppercase mb-5">
+                  <Orbit className="w-3.5 h-3.5 text-teal-400 animate-spin-slow" />
+                  <span>Tactile Systems Architecture</span>
                 </div>
-                <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                  Interactive Systems Control
+                <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase">
+                  Designed for Immersion
                 </h2>
-                <p className="font-sans text-sm md:text-base text-white/50 font-normal mt-4 leading-relaxed">
-                  Toggle the modules below to review how the Velora architecture maps reader libraries, secure author studios, and DRM encryption engines.
+                <p className="max-w-xl font-sans text-sm md:text-base text-zinc-400 font-normal mt-4 leading-relaxed">
+                  Every component in the Velora ecosystem is engineered to support clean readability, robust piracy protection, and creator-focused token systems.
                 </p>
               </div>
 
-              {/* Tab Selector */}
-              <div className="flex items-center gap-2 p-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md self-start md:self-auto overflow-x-auto w-full md:w-auto">
-                {Object.entries(showcaseTabs).map(([key, tab]) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`flex-1 md:flex-none px-5 py-2.5 rounded-full text-xs font-mono tracking-wider uppercase font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${
-                      activeTab === key
-                        ? "bg-white text-black shadow-md"
-                        : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    {tab.title.split(" ").slice(1).join(" ") || tab.title}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  {
+                    id: "f1",
+                    icon: Shield,
+                    title: "DRM-Shield Encryption",
+                    description:
+                      "Protects original author assets with advanced client-side overlays and screen protection systems.",
+                    category: "Core Security",
+                    glowColor: colors.glowColor
+                  },
+                  {
+                    id: "f2",
+                    icon: Zap,
+                    title: "Instant Chapter Sync",
+                    description:
+                      "Chapters unlock instantly across devices. Enjoy clean reading without ads or distraction panels.",
+                    category: "Performance",
+                    glowColor: colors.glowColor
+                  },
+                  {
+                    id: "f3",
+                    icon: Crown,
+                    title: "Crystalline Archives",
+                    description:
+                      "Once you unlock a chapter with coins, it remains bound to your reader library for permanent access.",
+                    category: "Library Control",
+                    glowColor: colors.glowColor
+                  },
+                  {
+                    id: "f4",
+                    icon: Cpu,
+                    title: "Fair Share Economy",
+                    description:
+                      "A transparent token economy that rewards creators directly. Your coins feed directly into creator workspaces.",
+                    category: "Token Mechanics",
+                    glowColor: colors.glowColor
+                  }
+                ].map((card, idx) => {
+                  const cardRef = useRef<HTMLDivElement | null>(null);
+                  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+                  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+                  const [isHovered, setIsHovered] = useState(false);
+                  const CardIcon = card.icon;
 
-            {/* Spec Matrix Display Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-              {/* Left Details Block */}
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-                className="lg:col-span-7 flex flex-col justify-between p-8 md:p-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-2xl shadow-black/60"
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.01)_0%,transparent_65%)] pointer-events-none" />
+                  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+                    if (!cardRef.current) return;
+                    const rect = cardRef.current.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width - 0.5;
+                    const y = (e.clientY - rect.top) / rect.height - 0.5;
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 15 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex flex-col h-full justify-between gap-10"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between border-b border-white/10 pb-6 mb-8 font-mono">
-                        <span className="text-[10px] tracking-widest text-teal-400 uppercase">
-                          {activeShowcase.subtitle}
-                        </span>
-                        <span className="text-[9px] tracking-widest text-white/30">
-                          SYS-ID // 0{activeTab === "vault" ? "1" : activeTab === "studio" ? "2" : "3"}
-                        </span>
-                      </div>
+                    setRotate({ x: -y * 18, y: x * 18 });
+                    setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                  };
 
-                      <h3 className="font-sans text-3xl md:text-4xl font-black text-white tracking-tight mb-6">
-                        {activeShowcase.title}
-                      </h3>
-                      <p className="font-sans text-sm md:text-base text-white/75 leading-relaxed font-normal mb-8">
-                        {activeShowcase.desc}
-                      </p>
+                  const handleMouseLeave = () => {
+                    setIsHovered(false);
+                    setRotate({ x: 0, y: 0 });
+                  };
 
-                      <div className="flex flex-wrap gap-2.5">
-                        {activeShowcase.tech.map((tech, idx) => (
-                          <motion.span
-                            key={tech}
-                            initial={{ opacity: 0, scale: 0.85, y: 8 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{
-                              duration: 0.4,
-                              delay: idx * 0.08,
-                              ease: [0.16, 1, 0.3, 1]
-                            }}
-                            className="px-3 py-1.5 rounded-md border border-white/10 bg-white/5 text-white/60 font-mono text-[9px] tracking-wider uppercase"
-                          >
-                            {tech}
-                          </motion.span>
-                        ))}
-                      </div>
-                    </div>
+                  return (
+                    <motion.div
+                      key={card.id}
+                      initial={{
+                        y: 75,
+                        opacity: 0,
+                        rotateX: 18,
+                        rotateY: -5,
+                        scale: 0.94,
+                        filter: "blur(6px)"
+                      }}
+                      whileInView={{
+                        y: 0,
+                        opacity: 1,
+                        rotateX: 0,
+                        rotateY: 0,
+                        scale: 1,
+                        filter: "blur(0px)"
+                      }}
+                      viewport={{ once: true, margin: "-50px" }}
+                      transition={{ duration: 1.2, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                      className="aetheris-perspective transform-gpu"
+                    >
+                      <div
+                        ref={cardRef}
+                        onMouseMove={handleMouseMove}
+                        onMouseEnter={() => setIsHovered(true)}
+                        onMouseLeave={handleMouseLeave}
+                        style={{
+                          transform: isHovered
+                            ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.025)`
+                            : "rotateX(0deg) rotateY(0deg) scale(1)",
+                          transition: isHovered
+                            ? "none"
+                            : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+                        }}
+                        className={`relative h-full flex flex-col justify-between p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:border-teal-400/40 hover:shadow-teal-950/10 transition-all duration-300 min-h-[260px]`}
+                      >
+                        <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
 
-                    {/* Telemetry output box */}
-                    <div className="mt-6 p-6 rounded-xl border border-white/10 bg-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                          <Sliders className="w-4 h-4 text-teal-400" />
-                        </div>
-                        <div>
-                          <div className="font-mono text-[9px] tracking-wider text-white/40 uppercase">
-                            Current Telemetry Field
-                          </div>
-                          <div className="font-sans text-sm font-semibold text-white mt-0.5">
-                            {activeShowcase.metricLabel}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="font-mono text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-                        {activeShowcase.metricValue}
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </motion.div>
+                        <div
+                          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
+                          style={{
+                            background: `radial-gradient(circle 220px at ${glowPos.x}px ${glowPos.y}px, ${card.glowColor}, transparent 80%)`
+                          }}
+                        />
 
-              {/* Right Graphical Portal Block */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-                className="lg:col-span-5 flex flex-col justify-center items-center p-8 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl min-h-[400px]"
-              >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative flex flex-col items-center justify-center w-full h-full"
-                  >
-                    <div className="relative w-64 h-64 flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full border border-white/5 shadow-[0_0_80px_rgba(20,184,166,0.15)] pointer-events-none"></div>
-                      <div className="absolute inset-4 rounded-full border border-dashed border-white/10 opacity-40 animate-spin-slow"></div>
-                      <div className="absolute inset-10 rounded-full border border-white/20 opacity-20 animate-spin-reverse"></div>
-
-                      <div className="absolute inset-[44px] bg-gradient-to-br from-white/15 to-transparent backdrop-blur-2xl rounded-full border border-white/25 shadow-2xl flex items-center justify-center group overflow-hidden">
-                        <div className="absolute w-full h-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.25),transparent)]"></div>
-                        <div className="w-[85%] h-[85%] border border-teal-400/20 rounded-full flex items-center justify-center">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                            className={`relative w-16 h-16 rounded-full bg-gradient-to-br ${activeShowcase.accent} p-[1.5px] shadow-lg shadow-black/40`}
-                          >
-                            <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center">
-                              <SelectedIcon className="w-6 h-6 text-teal-400" />
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between mb-6">
+                            <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5 group-hover:border-teal-500/30 transition-all duration-500 shadow-inner`}>
+                              <CardIcon className="w-6 h-6 text-teal-400 group-hover:scale-110 group-hover:text-teal-300 transition-all duration-500" />
                             </div>
-                          </motion.div>
-                        </div>
-                      </div>
-                    </div>
+                            <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest italic font-mono">
+                              {card.category}
+                            </span>
+                          </div>
 
-                    <div className="mt-8 text-center select-none font-mono">
-                      <div className="text-[9px] tracking-widest text-white/40 uppercase">
-                        System Core Signature
+                          <h3 className="font-sans text-[15px] font-bold text-white tracking-tight mb-2.5 group-hover:text-teal-200 transition-colors">
+                            {card.title}
+                          </h3>
+                          <p className="font-sans text-[12px] text-white/70 leading-relaxed font-light group-hover:text-white transition-colors">
+                            {card.description}
+                          </p>
+                        </div>
+
+                        <div className="mt-6 w-6 h-[1.5px] bg-white/30 group-hover:w-full transition-all duration-500 ease-out" />
                       </div>
-                      <div className="text-xs font-semibold text-white mt-1.5 tracking-wider">
-                        {activeShowcase.title.toUpperCase()} // ACTIVE
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </motion.div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
 
-        {/* --- 4. STORY TIMELINE CHRONICLE --- */}
+        {isAdmin && (
+          <section
+            id="showcase"
+            className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10"
+          >
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 w-96 h-96 rounded-full bg-teal-950/5 blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-violet-950/5 blur-[120px] pointer-events-none" />
+
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col md:flex-row md:items-end justify-between mb-16 md:mb-24 gap-6 select-none"
+              >
+                <div className="max-w-xl">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-400 font-mono text-[9px] tracking-widest uppercase mb-5">
+                    <Activity className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
+                    <span>Modular State Explorer</span>
+                  </div>
+                  <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase">
+                    Interactive Systems Control
+                  </h2>
+                  <p className="font-sans text-sm md:text-base text-white/50 font-normal mt-4 leading-relaxed">
+                    Toggle the modules below to review how the Velora architecture maps reader libraries, secure author studios, and DRM encryption engines.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 p-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md self-start md:self-auto overflow-x-auto w-full md:w-auto">
+                  {Object.entries(showcaseTabs).map(([key, tab]) => (
+                    <button
+                      key={key}
+                      onClick={() => setActiveTab(key)}
+                      className={`flex-1 md:flex-none px-5 py-2.5 rounded-full text-xs font-mono tracking-wider uppercase font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${activeTab === key
+                        ? "bg-white text-black shadow-md"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                        }`}
+                    >
+                      {tab.title.split(" ").slice(1).join(" ") || tab.title}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                <motion.div
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+                  className={`lg:col-span-7 flex flex-col justify-between p-8 md:p-12 rounded-xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl relative overflow-hidden shadow-2xl shadow-black/60`}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.01)_0%,transparent_65%)] pointer-events-none" />
+
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col h-full justify-between gap-10"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between border-b border-white/10 pb-6 mb-8 font-mono">
+                          <span className="text-[10px] tracking-widest text-teal-400 uppercase">
+                            {activeShowcase.subtitle}
+                          </span>
+                          <span className="text-[9px] tracking-widest text-white/30">
+                            SYS-ID // 0{activeTab === "vault" ? "1" : activeTab === "studio" ? "2" : "3"}
+                          </span>
+                        </div>
+
+                        <h3 className="font-sans text-3xl md:text-4xl font-black text-white tracking-tight mb-6">
+                          {activeShowcase.title}
+                        </h3>
+                        <p className="font-sans text-sm md:text-base text-white/75 leading-relaxed font-normal mb-8">
+                          {activeShowcase.desc}
+                        </p>
+
+                        <div className="flex flex-wrap gap-2.5">
+                          {activeShowcase.tech.map((tech, idx) => (
+                            <motion.span
+                              key={tech}
+                              initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              transition={{
+                                duration: 0.4,
+                                delay: idx * 0.08,
+                                ease: [0.16, 1, 0.3, 1]
+                              }}
+                              className={`px-3 py-1.5 rounded-md border ${colors.cardBorder} bg-white/5 text-white/60 font-mono text-[9px] tracking-wider uppercase`}
+                            >
+                              {tech}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className={`mt-6 p-6 rounded-xl border ${colors.cardBorder} bg-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg bg-white/5 border ${colors.cardBorder} flex items-center justify-center`}>
+                            <Sliders className="w-4 h-4 text-teal-400" />
+                          </div>
+                          <div>
+                            <div className="font-mono text-[9px] tracking-wider text-white/40 uppercase">
+                              Current Telemetry Field
+                            </div>
+                            <div className="font-sans text-sm font-semibold text-white mt-0.5">
+                              {activeShowcase.metricLabel}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="font-mono text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
+                          {activeShowcase.metricValue}
+                        </div>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+                  className={`lg:col-span-5 flex flex-col justify-center items-center p-8 rounded-xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl relative overflow-hidden shadow-xl min-h-[400px]`}
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      className="relative flex flex-col items-center justify-center w-full h-full"
+                    >
+                      <div className="relative w-64 h-64 flex items-center justify-center">
+                        <div className="absolute inset-0 rounded-full border border-white/5 shadow-[0_0_80px_rgba(20,184,166,0.15)] pointer-events-none" />
+                        <div className="absolute inset-4 rounded-full border border-dashed border-white/10 opacity-40 animate-spin-slow" />
+                        <div className="absolute inset-10 rounded-full border border-white/20 opacity-20 animate-spin-reverse" />
+
+                        <div className={`absolute inset-[44px] bg-gradient-to-br from-white/15 to-transparent backdrop-blur-2xl rounded-full border ${colors.cardBorder} shadow-2xl flex items-center justify-center group overflow-hidden`}>
+                          <div className="absolute w-full h-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.25),transparent)]" />
+                          <div className="w-[85%] h-[85%] border border-teal-400/20 rounded-full flex items-center justify-center">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                              className={`relative w-16 h-16 rounded-full bg-gradient-to-br ${activeShowcase.accent} p-[1.5px] shadow-lg shadow-black/40`}
+                            >
+                              <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center">
+                                <SelectedIcon className="w-6 h-6 text-teal-400" />
+                              </div>
+                            </motion.div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-8 text-center select-none font-mono">
+                        <div className="text-[9px] tracking-widest text-white/40 uppercase">
+                          System Core Signature
+                        </div>
+                        <div className="text-xs font-semibold text-white mt-1.5 tracking-wider">
+                          {activeShowcase.title.toUpperCase()} // ACTIVE
+                        </div>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+              </div>
+            </div>
+          </section>
+        )}
+
+
+        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
+
+        {/* --- EXTRA: TIMELINE CHRONICLE (Visible to all) --- */}
         <section
           id="story"
-          className="relative py-28 md:py-36 w-full bg-[#030305]/40 backdrop-blur-xs overflow-hidden"
+          className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10"
         >
-          {/* Timeline background vertical tracking line */}
           <div className="absolute top-0 right-1/4 w-[1px] h-full bg-gradient-to-b from-transparent via-zinc-800 to-transparent pointer-events-none" />
 
           <div className="max-w-6xl mx-auto px-6 md:px-12 relative z-10">
-            {/* Section Header */}
-            <div className="max-w-xl mb-20 md:mb-28">
+            <div className="max-w-xl mb-20 md:mb-28 select-none">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-400 font-mono text-[9px] tracking-widest uppercase mb-5">
                 <Compass className="w-3.5 h-3.5 text-teal-400" />
                 <span>Featured Chronicles</span>
               </div>
-              <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+              <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase">
                 Chronicles of Velora
               </h2>
-              <p className="font-sans text-sm md:text-base text-white/50 font-normal mt-4 leading-relaxed">
+              <p className="font-sans text-sm md:text-base text-white/50 font-normal mt-4 leading-relaxed font-light">
                 Step into premium serialized fiction. Explore top archives mapped dynamically to structural time vectors.
               </p>
             </div>
 
-            {/* Timeline Tracks */}
             <div className="relative pl-8 md:pl-16 border-l border-white/10 flex flex-col gap-16 md:gap-24">
               {stories.length > 0 ? (
                 stories.slice(0, 4).map((story, index) => (
@@ -1481,7 +2013,6 @@ export default function AetherisSpatialLayout({
                     transition={{ duration: 1.1, delay: index * 0.12, ease: [0.16, 1, 0.3, 1] }}
                     className="relative flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-16 group"
                   >
-                    {/* Timeline Node active tracker */}
                     <motion.div
                       initial={{ scale: 0.85, borderColor: "rgba(255, 255, 255, 0.15)" }}
                       whileInView={{ scale: 1.25, borderColor: "rgba(20, 184, 166, 0.8)" }}
@@ -1497,23 +2028,21 @@ export default function AetherisSpatialLayout({
                       />
                     </motion.div>
 
-                    {/* Left Meta column */}
-                    <div className="lg:w-48 shrink-0">
-                      <div className="font-mono text-xs font-bold text-teal-400 tracking-[0.25em] uppercase mb-1 font-mono">
+                    <div className="lg:w-48 shrink-0 select-none">
+                      <div className="font-mono text-xs font-bold text-teal-400 tracking-[0.25em] uppercase mb-1">
                         ARCHIVE // 0{index + 1}
                       </div>
-                      <div className="font-mono text-[10px] text-white/40 tracking-wider uppercase font-mono">
+                      <div className="font-mono text-[10px] text-white/40 tracking-wider uppercase">
                         {story.genre || "GENERAL FICTION"}
                       </div>
                     </div>
 
-                    {/* Narrative Card */}
-                    <div className="flex-1 p-8 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl hover:border-teal-400/30 transition-all duration-500 relative group shadow-lg flex flex-col md:flex-row gap-6">
+                    <div className={`flex-1 p-8 rounded-xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl hover:border-teal-400/30 transition-all duration-500 relative group shadow-lg flex flex-col md:flex-row gap-6`}>
                       <div className="absolute top-0 left-0 w-3 h-[1.5px] bg-white/30 group-hover:bg-teal-400 transition-colors duration-500" />
                       <div className="absolute top-0 left-0 w-[1.5px] h-3 bg-white/30 group-hover:bg-teal-400 transition-colors duration-500" />
 
                       {story.cover && (
-                        <div className="relative w-full md:w-32 aspect-[3/4] rounded-lg overflow-hidden shrink-0 border border-white/10 bg-zinc-950">
+                        <div className={`relative w-full md:w-32 aspect-[3/4] rounded-lg overflow-hidden shrink-0 border ${colors.cardBorder} bg-zinc-950`}>
                           <Image
                             src={story.cover}
                             alt={story.title}
@@ -1525,10 +2054,10 @@ export default function AetherisSpatialLayout({
 
                       <div className="flex-1 flex flex-col justify-between gap-4">
                         <div>
-                          <h3 className="font-sans text-xl font-bold text-white tracking-tight mb-2 group-hover:text-teal-200 transition-colors">
+                          <h3 className="font-sans text-xl font-bold text-white tracking-tight mb-2 group-hover:text-teal-200 transition-colors leading-tight">
                             {story.title}
                           </h3>
-                          <p className="font-sans text-xs text-white/50 mb-4 line-clamp-1">
+                          <p className="font-sans text-xs text-white/50 mb-4 line-clamp-1 select-none">
                             Status: <span className="text-teal-400 font-mono">ONGOING</span>
                           </p>
                           <p className="font-sans text-sm text-white/70 leading-relaxed font-light mb-4 line-clamp-2">
@@ -1538,14 +2067,14 @@ export default function AetherisSpatialLayout({
                         </div>
 
                         <div className="flex items-center justify-between gap-4 mt-auto">
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/5 bg-white/5 text-white/50 font-mono text-[9px] tracking-wider uppercase">
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/5 bg-white/5 text-white/50 font-mono text-[9px] tracking-wider uppercase select-none">
                             <span className="h-1 w-1 rounded-full bg-teal-400" />
                             <span>Telemetry Locked</span>
                           </div>
 
                           <Link
                             href={`/read/${story.slug}`}
-                            className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-white border border-white/10 px-5 py-2.5 rounded-full hover:bg-white hover:text-black transition-all"
+                            className={`inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-white border ${colors.cardBorder} px-5 py-2.5 rounded-full hover:bg-white hover:text-black transition-all`}
                           >
                             Uplink Reader <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
@@ -1565,16 +2094,16 @@ export default function AetherisSpatialLayout({
 
         <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
 
-        {/* --- 5. COIN WALLET FORGE --- */}
-        <section id="coins" className="relative py-28 md:py-36 w-full bg-[#030305]/30">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
-            <div className="relative p-8 md:p-16 rounded-[2.5rem] bg-gradient-to-br from-white/[0.04] to-transparent border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
-              <div className="absolute -top-20 -right-20 w-96 h-96 bg-teal-950/20 blur-[130px] rounded-full pointer-events-none" />
+        {/* --- READER: COIN WALLET FORGE (Visible to Authenticated) --- */}
+        {isAuthenticated && (
+          <section id="coins" className="relative py-28 md:py-36 w-full bg-transparent z-10">
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+              <div className="relative p-8 md:p-16 rounded-[2.5rem] bg-gradient-to-br from-white/[0.04] to-transparent border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
+                <div className="absolute -top-20 -right-20 w-96 h-96 bg-teal-950/20 blur-[130px] rounded-full pointer-events-none" />
 
-              <div className="relative z-10 grid lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-                {/* Left Stats Block */}
-                <div className="lg:col-span-7 flex flex-col justify-between gap-10">
-                  <div>
+                <div className="relative z-10 flex flex-col gap-12">
+                  {/* Header */}
+                  <div className="flex flex-col items-center text-center select-none max-w-2xl mx-auto">
                     <div className="flex items-center gap-3 text-teal-400 mb-6 font-mono">
                       <Zap className="fill-current w-4 h-4 animate-bounce" />
                       <span className="text-xs font-bold tracking-[0.3em] uppercase">
@@ -1584,100 +2113,412 @@ export default function AetherisSpatialLayout({
                     <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6 leading-none text-white uppercase">
                       Power Your Reading Journey
                     </h2>
-                    <p className="text-white/50 text-sm md:text-base mb-10 leading-relaxed font-light">
-                      Velora runs on a fully transparent creator economy. Unlock premium chapters using coordinates, supporting your writers directly without intermediaries.
+                    <p className="text-white/50 text-sm md:text-base leading-relaxed font-light">
+                      Velora runs on a fully transparent creator economy. Purchase packages or activate subscription passes to unlock chapters permanently, supporting your writers directly.
                     </p>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      {platformStats.map((stat, idx) => (
+                  {/* Two columns: Subscription Passes + Coin Packages */}
+                  <div className="grid lg:grid-cols-2 gap-12 items-start mt-6">
+                    {/* LEFT Column - Subscription Passes */}
+                    <div className="flex flex-col gap-5">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-teal-400 mb-2 flex items-center gap-2 font-mono select-none">
+                        <Crown className="w-4 h-4 animate-pulse text-teal-400" />
+                        Subscription Passes
+                      </h3>
+                      {subscriptionPackages.map((pack, idx) => (
                         <div
-                          key={idx}
-                          className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-teal-500/20 transition-all duration-300"
+                          key={pack.id}
+                          onClick={() => handleSubscriptionSelect(pack)}
+                          className={`group flex justify-between items-center p-5 rounded-2xl bg-white/5 border ${colors.cardBorder} hover:bg-teal-500/10 hover:border-teal-500/50 transition-all duration-300 cursor-pointer`}
                         >
-                          <p className="text-3xl font-black mb-1 text-white">{stat.value}</p>
-                          <p className="text-[9px] uppercase tracking-widest text-white/30 font-bold font-mono">
-                            {stat.label}
-                          </p>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl bg-white/5 border ${colors.cardBorder} flex items-center justify-center group-hover:scale-105 transition-all duration-300`}>
+                              <Crown className="text-teal-400 w-6 h-6 group-hover:animate-pulse" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-black text-lg text-white">{pack.name}</p>
+                                <span className="rounded-full bg-teal-500/15 px-2.5 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-teal-400 border border-teal-500/20">
+                                  {pack.badge}
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest font-mono mt-1">
+                                {pack.dailyCoins} coins/day · Total: {pack.totalCoins} coins
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right font-mono">
+                            <span className="px-4 py-2 bg-gradient-to-r from-teal-400 to-indigo-500 hover:from-teal-300 hover:to-indigo-400 text-black text-xs font-bold rounded-full transition-all duration-300 shadow-md">
+                              ₹{pack.price}/{pack.period === "week" ? "wk" : pack.period === "month" ? "mo" : "yr"}
+                            </span>
+                            <p className="text-[8px] text-white/30 uppercase tracking-widest mt-1.5 font-mono">
+                              ₹{pack.costPerCoin}/coin
+                            </p>
+                          </div>
                         </div>
                       ))}
                     </div>
+
+                    {/* RIGHT Column - Coin Transmissions */}
+                    <div className="flex flex-col gap-5">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-teal-400 mb-2 flex items-center gap-2 font-mono select-none">
+                        <Coins className="w-4 h-4 animate-pulse text-teal-400" />
+                        Coin Transmissions
+                      </h3>
+                      {coinPackages.length > 0 ? (
+                        coinPackages.map((pack) => {
+                          const campaignParts = (pack.campaign || "").split("|");
+                          const manual = Number(campaignParts[1]) || 0;
+                          const combined = Number(campaignParts[2]) || 0;
+                          const scheduled = isCampaignLive ? (activeDiscountResult?.campaign?.percent ?? 0) : 0;
+                          const totalDiscount = manual + combined + scheduled;
+                          const basePrice = pack.price;
+                          const discountedPrice = Math.max(0, Math.round(basePrice * (1 - totalDiscount / 100)));
+
+                          return (
+                            <div
+                              key={pack.id}
+                              onClick={() =>
+                                checkoutPackageId ? undefined : handlePackageSelect(pack)
+                              }
+                              className={`group flex justify-between items-center p-5 rounded-2xl bg-white/5 border ${totalDiscount > 0
+                                ? "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/50"
+                                : `${colors.cardBorder} hover:bg-teal-500/10 hover:border-teal-500/50`
+                                } transition-all duration-300 cursor-pointer ${checkoutPackageId === pack.id ? "opacity-55 cursor-wait" : ""
+                                }`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-xl bg-white/5 border ${colors.cardBorder} flex items-center justify-center group-hover:scale-105 transition-all duration-300`}>
+                                  <Coins className="text-teal-400 w-6 h-6 group-hover:animate-pulse" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-black text-lg text-white">{pack.coins} Coins</p>
+                                    <span className="rounded-full bg-teal-500/15 px-2.5 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-teal-400 border border-teal-500/20">
+                                      {checkoutPackageId === pack.id ? "Opening..." : pack.badge || "TRANSMISSION"}
+                                    </span>
+                                    {totalDiscount > 0 && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/30 animate-pulse font-mono">
+                                        SAVE {totalDiscount}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest font-mono mt-1">
+                                    {pack.bonus ? `+ ${pack.bonus} bonus coins` : "DIRECT COIN DISPATCH"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="text-right font-mono">
+                                <div className="flex items-center gap-2 justify-end">
+                                  {totalDiscount > 0 && (
+                                    <span className="text-xs text-white/40 line-through">₹{basePrice}</span>
+                                  )}
+                                  <span className="px-4 py-2 bg-gradient-to-r from-teal-400 to-indigo-500 text-black text-xs font-bold rounded-full transition-all shadow-md">
+                                    ₹{discountedPrice}
+                                  </span>
+                                </div>
+                                {totalDiscount > 0 && (
+                                  <p className="text-[8px] text-emerald-400 font-bold uppercase tracking-widest mt-1">
+                                    Save ₹{basePrice - discountedPrice}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-zinc-500 font-mono text-xs py-4">
+                          No transmissions cataloged.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Right Package selector block */}
-                <div className="lg:col-span-5 w-full flex flex-col gap-5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2 flex items-center gap-2 font-mono">
-                    <Crown className="text-yellow-500 w-4 h-4 animate-pulse" />
-                    Recommended Transmissions
-                  </h4>
+                  {/* BOTTOM Grid - Promotion Cards, active campaign, and Check-in Reward Box */}
+                  <div className="mt-12 select-none">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-teal-400 mb-6 flex items-center gap-2 font-mono select-none">
+                      <Sparkles className="text-teal-400 w-4 h-4 animate-pulse" />
+                      Platform Offers & System Rewards
+                    </h4>
+                    <div className="grid gap-6 md:grid-cols-3">
+                      {/* Card 1: Best Value Subscription */}
+                      <div className={`relative overflow-hidden rounded-2xl border ${colors.cardBorder} bg-white/5 p-6 backdrop-blur transition-all duration-300 hover:border-teal-500/30 hover:bg-white/[0.07] group`}>
+                        <div className="absolute -right-8 -top-8 w-24 h-24 bg-teal-500/5 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 group-hover:scale-105 transition-transform">
+                            <Crown className="h-5 w-5" />
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider font-bold text-teal-400 font-mono">Best Value Pass</span>
+                        </div>
+                        <h4 className="mt-4 font-sans text-base font-bold text-white uppercase group-hover:text-teal-200 transition-colors">Yearly Pass</h4>
+                        <p className="mt-2 text-xs text-white/50 leading-relaxed font-light">
+                          Save 25% compared to weekly/monthly renewals. Credited daily with 15 coins for a full 365 days.
+                        </p>
+                      </div>
 
-                  {coinPackages.length > 0 ? (
-                    coinPackages.map((pack) => (
-                      <div
-                        key={pack.id}
-                        onClick={() =>
-                          checkoutPackageId ? undefined : handlePackageSelect(pack)
-                        }
-                        className={`group flex justify-between items-center p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-teal-500/10 hover:border-teal-500/50 transition-all duration-300 cursor-pointer ${
-                          checkoutPackageId === pack.id ? "opacity-55 cursor-wait" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-105 transition-all duration-300">
-                            <Coins className="text-teal-400 w-6 h-6 group-hover:animate-pulse" />
+                      {/* Card 2: Best Value Coin Purchase */}
+                      <div className={`relative overflow-hidden rounded-2xl border ${colors.cardBorder} bg-white/5 p-6 backdrop-blur transition-all duration-300 hover:border-teal-500/30 hover:bg-white/[0.07] group`}>
+                        <div className="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-teal-400 group-hover:scale-105 transition-transform">
+                            <Sparkles className="h-5 w-5" />
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider font-bold text-teal-400 font-mono">Best Value Purchase</span>
+                        </div>
+                        <h4 className="mt-4 font-sans text-base font-bold text-white uppercase group-hover:text-teal-200 transition-colors">VIP Pack (₹999)</h4>
+                        <p className="mt-2 text-xs text-white/50 leading-relaxed font-light">
+                          Get 1,400 coins instantly. Best price-per-coin conversion rate with zero wait time.
+                        </p>
+                      </div>
+
+                      {/* Card 3: Neural Check-in (Reward Box) */}
+                      <div className={`relative overflow-hidden rounded-2xl border ${colors.cardBorder} bg-white/5 p-6 backdrop-blur transition-all duration-300 hover:border-teal-500/30 hover:bg-white/[0.07] group flex flex-col justify-between`}>
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:scale-105 transition-transform">
+                              <Zap className="h-5 w-5 animate-pulse" />
+                            </div>
+                            <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-400 font-mono">Neural check-in</span>
+                          </div>
+                          <h4 className="mt-4 font-sans text-base font-bold text-white uppercase group-hover:text-emerald-200 transition-colors">Reward Sync Box</h4>
+                          <p className="mt-2 text-xs text-white/50 leading-relaxed font-light">
+                            Synchronize your reader coordinates to claim 5 free loyalty coins once every 24 hours.
+                          </p>
+                        </div>
+
+                        <div className="mt-5 pt-3 border-t border-white/5">
+                          <button
+                            type="button"
+                            onClick={handleDailyCheckIn}
+                            disabled={dailyRewardClaimed || dailyRewardClaiming}
+                            className={`w-full py-2 rounded-full font-mono text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${dailyRewardClaimed
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed"
+                              : dailyRewardClaiming
+                                ? "bg-white/10 text-white/50 border border-white/10 cursor-wait animate-pulse"
+                                : "bg-white text-black hover:bg-emerald-500 hover:text-white"
+                              }`}
+                          >
+                            {dailyRewardClaimed ? (
+                              "✓ Synced & Claimed"
+                            ) : dailyRewardClaiming ? (
+                              "Syncing Coordinates..."
+                            ) : (
+                              "Synchronize & Claim"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Offer Campaign banner at bottom of grid */}
+                    <div className={`mt-6 p-6 rounded-2xl border ${isCampaignLive ? "border-emerald-500/20 bg-emerald-500/5 shadow-lg shadow-emerald-500/5" : `border-white/10 bg-white/5`
+                      } backdrop-blur relative overflow-hidden group`}>
+                      {isCampaignLive && (
+                        <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+                      )}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2.5 rounded-lg border ${isCampaignLive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 animate-pulse" : "bg-white/5 border-white/10 text-white/50"
+                            }`}>
+                            <Percent className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="font-black text-lg text-white">{pack.coins} Coins</p>
-                            <p className="text-[9px] font-semibold text-white/30 uppercase tracking-widest font-mono">
-                              {pack.badge || "TRANSMISSION KEY"}
-                            </p>
+                            <span className={`text-[9px] uppercase tracking-wider font-mono font-bold ${isCampaignLive ? "text-emerald-400" : "text-white/40"
+                              }`}>
+                              {isCampaignLive ? "Active Surprise Discount" : "Promotional Campaigns"}
+                            </span>
+                            <h4 className="font-sans text-base font-bold text-white uppercase mt-0.5">
+                              {isCampaignLive ? activeDiscountResult?.campaign?.title : "Weekend Flash Sales"}
+                            </h4>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <p className="text-xl font-black text-white">₹{pack.price}</p>
-                          {isCampaignLive && (
-                            <p className="text-[8px] text-emerald-400 font-bold font-mono uppercase mt-0.5 animate-pulse">
-                              SAVE {activeDiscountResult.campaign.percent}%
-                            </p>
+                        <div className="flex items-center gap-3 self-start sm:self-auto font-mono">
+                          {isCampaignLive ? (
+                            <>
+                              <span className="text-[10px] font-semibold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 animate-pulse">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                Active offer
+                              </span>
+                              <span className="px-4 py-2 bg-emerald-500 text-black text-xs font-black rounded-full shrink-0">
+                                - {activeDiscountResult?.campaign?.percent}% OFF
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-3 py-1 rounded-full bg-white/5 text-white/40 border border-white/10 flex items-center gap-1.5 font-mono">
+                              <Clock className="h-3 w-3 shrink-0" />
+                              No active sales
+                            </span>
                           )}
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-zinc-500 font-mono text-xs py-4">
-                      No transmissions cataloged.
+                      <p className="mt-3 text-xs text-white/50 leading-relaxed font-light pl-0.5">
+                        {isCampaignLive
+                          ? activeDiscountResult?.campaign?.description
+                          : "No active discount campaigns scheduled currently. Turn on notifications to catch upcoming surprise sales!"}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+
+        {/* --- ADMIN: ANTI-PIRACY PROTECTION LAYERS --- */}
+        {isAdmin && (
+          <section id="admin-protection" className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10 border-t border-white/5">
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+              <div className="flex flex-col items-center text-center mb-16 md:mb-24 select-none">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest uppercase mb-5">
+                  <Shield className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Security Infrastructure</span>
+                </div>
+                <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase">
+                  Content Protection Layers
+                </h2>
+                <p className="max-w-xl font-sans text-sm md:text-base text-zinc-400 font-normal mt-4 leading-relaxed font-light">
+                  Review Velora's active piracy countermeasures, DOM observers, canvas overlays, and decryption nodes.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {securityLayers.map((layer: any) => {
+                  const cardRef = useRef<HTMLDivElement | null>(null);
+                  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+                  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+                  const [isHovered, setIsHovered] = useState(false);
+                  const LayerIcon = layer.icon;
+
+                  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+                    if (!cardRef.current) return;
+                    const rect = cardRef.current.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width - 0.5;
+                    const y = (e.clientY - rect.top) / rect.height - 0.5;
+                    setRotate({ x: -y * 14, y: x * 14 });
+                    setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                  };
+
+                  const handleMouseLeave = () => {
+                    setIsHovered(false);
+                    setRotate({ x: 0, y: 0 });
+                  };
+
+                  return (
+                    <div
+                      key={layer.label}
+                      ref={cardRef}
+                      onMouseMove={handleMouseMove}
+                      onMouseEnter={() => setIsHovered(true)}
+                      onMouseLeave={handleMouseLeave}
+                      style={{
+                        transform: isHovered
+                          ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.02)`
+                          : "rotateX(0deg) rotateY(0deg) scale(1)",
+                        transition: isHovered
+                          ? "none"
+                          : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+                      }}
+                      className={`relative flex flex-col p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:shadow-black/50 transition-all duration-300 min-h-[180px]`}
+                    >
+                      <div
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
+                        style={{
+                          background: `radial-gradient(circle 200px at ${glowPos.x}px ${glowPos.y}px, ${colors.glowColor}, transparent 80%)`
+                        }}
+                      />
+                      <div className="relative z-10 flex flex-col gap-4">
+                        <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5`}>
+                          <LayerIcon className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform duration-300" />
+                        </div>
+                        <h4 className="font-sans text-base font-bold text-white tracking-tight">
+                          {layer.label}
+                        </h4>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* --- ADMIN: DASHBOARD OVERVIEW --- */}
+        {isAdmin && (
+          <section className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10 border-t border-white/5">
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+              <div className="flex flex-col items-center text-center mb-16 md:mb-24 select-none">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest uppercase mb-5">
+                  <Activity className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Author Workspaces</span>
+                </div>
+                <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase">
+                  Studio Workbenches
+                </h2>
+                <p className="max-w-xl font-sans text-sm md:text-base text-zinc-400 font-normal mt-4 leading-relaxed font-light">
+                  Admin console panel modules to govern user accounts, track ledger settlements, and publish novel drafts.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {adminModules.map((item: any) => {
+                  const ModuleIcon = item.icon;
+                  return (
+                    <div
+                      key={item.label}
+                      className={`flex flex-col p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl relative overflow-hidden group shadow-lg hover:shadow-black/50 transition-all duration-300 min-h-[200px]`}
+                    >
+                      <ModuleIcon className="h-6 w-6 text-teal-400 mb-4 group-hover:scale-115 transition-transform duration-300" />
+                      <h3 className="font-sans text-base font-bold text-white tracking-tight">
+                        {item.label}
+                      </h3>
+                      <p className="font-sans text-xs text-white/50 leading-relaxed font-light mt-2.5">
+                        {item.detail}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-center select-none">
+                <Link
+                  href="/admin"
+                  className={`inline-flex items-center gap-2 border ${colors.cardBorder} bg-white/5 px-8 py-3.5 rounded-full text-xs font-mono font-bold tracking-widest uppercase text-white hover:bg-white hover:text-black transition-all`}
+                >
+                  OPEN STUDIO BOARD <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-800/80 to-transparent relative z-20" />
 
+
+
         {/* --- 6. NEURAL UPLINK & FEEDBACK --- */}
-        <section id="cta" className="relative py-28 md:py-36 w-full bg-[#030305] overflow-hidden">
+        <section id="cta" className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10 border-t border-white/5">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(20,184,166,0.1)_0%,transparent_60%)] pointer-events-none" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] rounded-full bg-teal-900/5 blur-[120px] pointer-events-none animate-pulse-slow" />
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.002)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.002)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
 
-          <div className="max-w-4xl mx-auto px-6 md:px-12 relative z-10">
-            {/* Header Block */}
+          <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 35 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col items-center mb-12 text-center"
+              className="flex flex-col items-center mb-12 text-center select-none"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.8 }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/5 text-zinc-400 font-mono text-[9px] tracking-[0.25em] uppercase mb-8"
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${colors.cardBorder} bg-white/5 text-zinc-400 font-mono text-[9px] tracking-[0.25em] uppercase mb-8`}
               >
                 <Shield className="w-3.5 h-3.5 text-teal-400" />
                 <span>Secure Neural Uplink Channel</span>
@@ -1695,195 +2536,259 @@ export default function AetherisSpatialLayout({
               </p>
             </motion.div>
 
-            {/* Grid of Forms */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch max-w-4xl mx-auto">
-              {/* Form 1: Newsletter Coordinates */}
+            <div className={`grid grid-cols-1 ${isAuthenticated || !isAuthenticated ? "md:grid-cols-2" : ""} gap-8 items-stretch max-w-6xl mx-auto`}>
+              {/* Left Column: Writer's Note Quote Box */}
               <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.96 }}
                 whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
-                className="p-8 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl flex flex-col justify-between"
+                transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+                className={`p-8 rounded-xl border ${colors.cardBorder} bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl flex flex-col justify-between ${
+                  !isAuthenticated ? "max-w-md mx-auto w-full" : ""
+                }`}
               >
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-teal-950/20 blur-xl rounded-full pointer-events-none" />
                 <div>
-                  <h4 className="font-sans text-lg font-bold text-white mb-2 uppercase">
-                    Newsletter Matrix
-                  </h4>
-                  <p className="font-sans text-xs text-zinc-400 leading-relaxed mb-6">
-                    Establish a telemetry link to receive upcoming chapter details directly.
+                  <div className="flex items-center gap-3 text-teal-400 mb-6 font-mono select-none">
+                    <Quote className="w-4 h-4 text-teal-400" />
+                    <span className="text-[10px] font-bold tracking-[0.25em] uppercase">
+                      Transmission from the Creator
+                    </span>
+                  </div>
+                  <p className="font-sans text-xs sm:text-sm text-white/80 leading-relaxed font-light whitespace-pre-line italic">
+                    "{writerNote?.content || "Velora is designed for fiction that deserves a premium home: beautiful discovery, respectful monetization, and enough protection to make paid chapters viable at scale."}"
                   </p>
-
-                  <AnimatePresence mode="wait">
-                    {uplinkStatus === "idle" && (
-                      <motion.form
-                        key="form-idle"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        onSubmit={handleUplinkConnect}
-                        className="flex flex-col gap-4"
+                </div>
+                
+                <div className="mt-8 pt-5 border-t border-white/5 flex flex-col gap-4">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-teal-400/60 font-mono select-none">
+                    Digital Frequency Coordinates
+                  </span>
+                  <div className="flex gap-3.5 items-center">
+                    {writerNote?.twitter && (
+                      <a
+                        href={writerNote.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                        title="Twitter / X"
                       >
-                        <input
-                          type="email"
-                          required
-                          value={uplinkEmail}
-                          onChange={(e) => setUplinkEmail(e.target.value)}
-                          placeholder="Enter email coordinate..."
-                          className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 text-white font-sans text-xs placeholder-white/30 focus:outline-none focus:border-teal-400/50 focus:shadow-[0_0_15px_rgba(20,184,166,0.1)] transition-all duration-300"
-                        />
-                        <button
-                          type="submit"
-                          className="w-full py-3 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 flex items-center justify-center gap-2 group cursor-pointer"
-                        >
-                          Connect Channel
-                          <Send className="w-3 h-3 group-hover:translate-x-1.5 transition-transform" />
-                        </button>
-                      </motion.form>
+                        <Twitter className="w-3.5 h-3.5" />
+                      </a>
                     )}
-
-                    {(uplinkStatus === "linking" || uplinkStatus === "decrypting") && (
-                      <motion.div
-                        key="form-loading"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="py-6 flex flex-col items-center justify-center gap-4"
+                    {writerNote?.instagram && (
+                      <a
+                        href={writerNote.instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                        title="Instagram"
                       >
-                        <RefreshCw className="w-6 h-6 text-teal-400 animate-spin" />
-                        <div className="text-center">
-                          <div className="font-mono text-[9px] tracking-widest text-teal-400 font-bold uppercase animate-pulse">
-                            {uplinkStatus === "linking"
-                              ? "ESTABLISHING UPLINK..."
-                              : "DECRYPTING CORRELATION..."}
-                          </div>
-                          <div className="font-mono text-[7px] tracking-widest text-zinc-600 uppercase mt-1">
-                            SSL_TLS // KEY_PAIR_HANDSHAKE
-                          </div>
-                        </div>
-                      </motion.div>
+                        <Instagram className="w-3.5 h-3.5" />
+                      </a>
                     )}
-
-                    {uplinkStatus === "connected" && (
-                      <motion.div
-                        key="form-success"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="py-6 flex flex-col items-center justify-center gap-4 text-center"
+                    {writerNote?.facebook && (
+                      <a
+                        href={writerNote.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                        title="Facebook"
                       >
-                        <CheckCircle2 className="w-10 h-10 text-emerald-400 animate-bounce" />
-                        <div>
-                          <h5 className="font-sans text-sm font-bold text-white mb-1">
-                            Uplink Active
-                          </h5>
-                          <p className="font-sans text-[10px] text-zinc-400 max-w-xs mx-auto leading-normal">
-                            Coordinate <span className="text-teal-400 font-mono">{uplinkEmail}</span>{" "}
-                            is now bonded with node matrices.
-                          </p>
-                        </div>
-                        <div className="font-mono text-[7px] tracking-widest text-emerald-500/80 uppercase">
-                          NODE_ID // {Math.random().toString(16).substring(2, 8).toUpperCase()}
-                        </div>
-                      </motion.div>
+                        <Facebook className="w-3.5 h-3.5" />
+                      </a>
                     )}
-                  </AnimatePresence>
+                    {writerNote?.youtube && (
+                      <a
+                        href={writerNote.youtube}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                        title="YouTube"
+                      >
+                        <Youtube className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {writerNote?.linkedin && (
+                      <a
+                        href={writerNote.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                        title="LinkedIn"
+                      >
+                        <Linkedin className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {!writerNote?.twitter && !writerNote?.instagram && !writerNote?.facebook && !writerNote?.youtube && !writerNote?.linkedin && (
+                      <span className="text-[9px] text-zinc-500 font-mono uppercase">Offline Sync only // No Social coordinates</span>
+                    )}
+                  </div>
                 </div>
               </motion.div>
 
-              {/* Form 2: Reader Feedback Review */}
-              <motion.div
-                initial={{ opacity: 0, y: 30, scale: 0.96 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1.0, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="p-8 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl flex flex-col justify-between"
-              >
-                <div>
-                  <h4 className="font-sans text-lg font-bold text-white mb-2 uppercase">
-                    Feedback Signal
-                  </h4>
-                  <p className="font-sans text-xs text-zinc-400 leading-relaxed mb-4">
-                    Send suggestions, review notes, and spatial performance reports to writers.
-                  </p>
+              {/* Right Column: Reader Feedback / Guest Auth Portal */}
+              {isAuthenticated ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 30, scale: 0.96 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1.0, delay: 0.1, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+                  className={`p-8 rounded-xl border ${colors.cardBorder} bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl flex flex-col justify-between`}
+                >
+                  <div>
+                    <h4 className="font-sans text-lg font-bold text-white mb-2 uppercase">
+                      Feedback Signal
+                    </h4>
+                    <p className="font-sans text-xs text-zinc-400 leading-relaxed mb-4 font-light">
+                      Send suggestions, review notes, and performance reports directly to writers.
+                    </p>
 
-                  <form onSubmit={handleFeedbackSubmit} className="flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
+                    <form onSubmit={handleFeedbackSubmit} className="flex flex-col gap-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={feedbackName}
+                          onChange={(e) => setFeedbackName(e.target.value)}
+                          placeholder="Your name..."
+                          className={`flex-1 px-3 py-2.5 rounded-lg border ${colors.cardBorder} bg-white/5 text-white font-sans text-xs placeholder-white/30 focus:outline-none focus:border-teal-400/50 focus:shadow-[0_0_10px_rgba(20,184,166,0.08)] transition-all duration-300`}
+                        />
+
+                        {/* Interactive Star rating selector */}
+                        <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-lg px-2 text-zinc-400 select-none">
+                          <span className="font-mono text-[9px] uppercase tracking-wider">Rating:</span>
+                          <div className="flex gap-0.5 font-mono">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                type="button"
+                                key={star}
+                                onClick={() => setFeedbackRating(star)}
+                                className="focus:outline-none"
+                              >
+                                <Star
+                                  className={`w-3.5 h-3.5 transition-colors duration-300 ${
+                                    star <= feedbackRating
+                                      ? "text-yellow-500 fill-yellow-500"
+                                      : "text-zinc-600"
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <textarea
                         required
-                        value={feedbackName}
-                        onChange={(e) => setFeedbackName(e.target.value)}
-                        placeholder="Your name..."
-                        className="flex-1 px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white font-sans text-xs placeholder-white/30 focus:outline-none focus:border-teal-400/50 focus:shadow-[0_0_10px_rgba(20,184,166,0.08)] transition-all duration-300"
+                        value={feedbackComment}
+                        onChange={(e) => setFeedbackComment(e.target.value)}
+                        placeholder="Your suggestions/review message..."
+                        className={`w-full px-3 py-2.5 rounded-lg border ${colors.cardBorder} bg-white/5 text-white font-sans text-xs placeholder-white/30 focus:outline-none focus:border-teal-400/50 focus:shadow-[0_0_10px_rgba(20,184,166,0.08)] transition-all duration-300 h-20 resize-none`}
                       />
 
-                      {/* Interactive Star rating selector */}
-                      <div className="flex items-center gap-1 border border-white/10 bg-white/5 rounded-lg px-2 text-zinc-400 select-none">
-                        <span className="font-mono text-[9px] uppercase tracking-wider">Rating:</span>
-                        <div className="flex gap-0.5 font-mono">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              type="button"
-                              key={star}
-                              onClick={() => setFeedbackRating(star)}
-                              className="focus:outline-none"
-                            >
-                              <Star
-                                className={`w-3.5 h-3.5 transition-colors duration-300 ${
-                                  star <= feedbackRating
-                                    ? "text-yellow-500 fill-yellow-500"
-                                    : "text-zinc-600"
-                                }`}
-                              />
-                            </button>
-                          ))}
+                      {feedbackError && (
+                        <div className="font-mono text-[9px] text-red-400 uppercase tracking-wide">
+                          Error: {feedbackError}
                         </div>
-                      </div>
-                    </div>
+                      )}
+                      {feedbackSuccess && (
+                        <div className="font-mono text-[9px] text-emerald-400 uppercase tracking-wide">
+                          {feedbackSuccess}
+                        </div>
+                      )}
 
-                    <textarea
-                      required
-                      value={feedbackComment}
-                      onChange={(e) => setFeedbackComment(e.target.value)}
-                      placeholder="Your suggestions/review message..."
-                      className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white font-sans text-xs placeholder-white/30 focus:outline-none focus:border-teal-400/50 focus:shadow-[0_0_10px_rgba(20,184,166,0.08)] transition-all duration-300 h-20 resize-none"
-                    />
-
-                    {feedbackError && (
-                      <div className="font-mono text-[9px] text-red-400 uppercase tracking-wide">
-                        Error: {feedbackError}
-                      </div>
-                    )}
-                    {feedbackSuccess && (
-                      <div className="font-mono text-[9px] text-emerald-400 uppercase tracking-wide font-mono">
-                        {feedbackSuccess}
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={feedbackSubmitting}
-                      className="w-full py-3 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-55"
+                      <button
+                        type="submit"
+                        disabled={feedbackSubmitting}
+                        className="w-full py-3 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-55"
+                      >
+                        {feedbackSubmitting ? "TRANSMITTING..." : "SEND SIGNAL"}
+                      </button>
+                    </form>
+                  </div>
+                </motion.div>
+              ) : (
+                /* Guest auth uplink portal */
+                <motion.div
+                  initial={{ opacity: 0, y: 30, scale: 0.96 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1.0, delay: 0.1, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+                  className={`p-8 rounded-xl border ${colors.cardBorder} bg-white/5 backdrop-blur-xl relative overflow-hidden shadow-xl flex flex-col justify-between max-w-md mx-auto w-full`}
+                >
+                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-teal-950/20 blur-xl rounded-full pointer-events-none" />
+                  <div>
+                    <h4 className="font-sans text-lg font-bold text-white mb-2 uppercase">
+                      Neural Interface
+                    </h4>
+                    <p className="font-sans text-xs text-zinc-400 leading-relaxed mb-8 font-light">
+                      Establish your coordinate credentials to connect to the converged library database and send feedback signals.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3.5">
+                    <Link
+                      href="/auth"
+                      className="w-full py-3 bg-white text-black font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-teal-500 hover:text-white transition-all duration-500 text-center shadow-lg"
                     >
-                      {feedbackSubmitting ? "TRANSMITTING..." : "SEND SIGNAL"}
-                    </button>
-                  </form>
-                </div>
-              </motion.div>
+                      Authenticate Access
+                    </Link>
+                    <Link
+                      href="/auth?mode=register"
+                      className="w-full py-3 border border-white/10 bg-white/5 text-white font-semibold rounded-full text-xs font-mono tracking-widest uppercase hover:bg-white hover:text-black transition-all duration-500 text-center"
+                    >
+                      Register Node
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </div>
         </section>
 
+        
+        {/* --- FAQ SECTION (Visible to Authenticated) --- */}
+        {isAuthenticated && faqs.length > 0 && (
+          <section className="relative py-28 md:py-36 w-full bg-transparent overflow-hidden z-10">
+            <div className="max-w-4xl mx-auto px-6 relative z-10">
+              <div className="flex flex-col items-center text-center mb-16 md:mb-24 select-none">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono text-[9px] tracking-widest uppercase mb-5">
+                  <Compass className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Frequently Asked Questions</span>
+                </div>
+                <h2 className="font-sans text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight uppercase font-black">
+                  Common Questions
+                </h2>
+              </div>
+
+              <div className={`border ${colors.cardBorder} divide-y ${colors.cardBorder} overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl`}>
+                {faqs.map((faq: any) => (
+                  <details
+                    key={faq.q}
+                    className={`faq-item group cursor-pointer p-6 transition-colors hover:bg-white/5`}
+                  >
+                    <summary className="flex items-center justify-between gap-4 font-bold text-sm tracking-tight text-white focus:outline-none select-none">
+                      {faq.q}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-teal-400 transition-transform duration-200 group-open:rotate-90" />
+                    </summary>
+                    <p className="mt-4 text-xs sm:text-sm leading-relaxed text-white/60 font-light pl-1">
+                      {faq.a}
+                    </p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
         {/* --- 7. MINIMAL FOOTER --- */}
         <footer
           id="footer"
           className="bg-[#030303] border-t border-white/10 py-16 md:py-24 relative overflow-hidden font-sans"
         >
-          {/* Decorative vertical separator */}
           <div className="absolute top-0 right-1/3 w-[1px] h-36 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
 
           <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 border-b border-white/10 pb-16">
-              {/* Logo manifesto */}
               <div className="lg:col-span-6 flex flex-col items-start gap-6">
                 <div className="flex items-center gap-4">
                   <div className="relative w-8 h-8 border border-white/40 flex items-center justify-center rotate-45">
@@ -1898,7 +2803,6 @@ export default function AetherisSpatialLayout({
                 </p>
               </div>
 
-              {/* Navigation links block */}
               <div className="lg:col-span-6 grid grid-cols-2 gap-8">
                 <div className="flex flex-col gap-5">
                   <h4 className="font-mono text-[9px] tracking-[0.25em] text-white/40 uppercase font-bold">
@@ -1958,28 +2862,29 @@ export default function AetherisSpatialLayout({
               </div>
             </div>
 
-            {/* Bottom COPYRIGHT & ACTIONS */}
             <div className="pt-10 flex flex-col md:flex-row items-center justify-between gap-6 select-none font-sans">
               <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
                 <span className="font-mono text-[9px] tracking-wider text-white/30 uppercase">
                   © {new Date().getFullYear()} VELORA // AETHERIS LABS. ALL RIGHTS RESERVED.
                 </span>
                 <span className="hidden sm:inline text-white/10">|</span>
-                <span className="font-mono text-[9px] tracking-wider text-white/30 uppercase">
+                <span className="font-mono text-[9px] tracking-wider text-white/30 uppercase font-mono">
                   LICENSED UNDER VELORA CORE
                 </span>
               </div>
 
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-4">
-                  <a
-                    href={writerNote?.twitter || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
-                  >
-                    <Twitter className="w-3.5 h-3.5" />
-                  </a>
+                  {writerNote?.twitter && (
+                    <a
+                      href={writerNote.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-teal-400/40 flex items-center justify-center transition-all duration-300"
+                    >
+                      <Twitter className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                   <a
                     href="https://github.com"
                     target="_blank"

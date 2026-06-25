@@ -29,6 +29,7 @@ export type Chapter = {
   readTime: string;
   excerpt: string;
   content: string[];
+  publishedAt?: string | Date;
 };
 
 export type Story = {

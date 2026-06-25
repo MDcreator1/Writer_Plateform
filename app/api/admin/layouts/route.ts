@@ -37,6 +37,49 @@ function updateRegistryFile(layoutsDir: string, files: string[]) {
   }
 }
 
+function scanLayouts(dirName: string) {
+  const layoutsDir = path.join(process.cwd(), "components", dirName);
+  const availableLayouts: Array<{ id: string; name: string; description: string }> = [];
+  const layoutFiles: string[] = [];
+
+  if (fs.existsSync(layoutsDir)) {
+    const files = fs.readdirSync(layoutsDir);
+    for (const file of files) {
+      if (file.endsWith(".tsx") && file !== "registry.ts") {
+        layoutFiles.push(file);
+        const filePath = path.join(layoutsDir, file);
+        const content = fs.readFileSync(filePath, "utf-8");
+
+        // Default fallback values
+        const id = file.replace(/\.tsx$/, "");
+        let name = id.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        let description = `Custom ${dirName.replace("-layouts", "")} layout.`;
+
+        // Regex matching for exported metadata
+        const nameMatch = content.match(/name\s*:\s*["']([^"']+)["']/);
+        const descMatch = content.match(/description\s*:\s*["']([^"']+)["']/);
+
+        if (nameMatch) {
+          name = nameMatch[1];
+        }
+        if (descMatch) {
+          description = descMatch[1];
+        }
+
+        availableLayouts.push({
+          id,
+          name,
+          description
+        });
+      }
+    }
+    
+    // Auto-generate registry mappings to support static bundle code-splitting
+    updateRegistryFile(layoutsDir, layoutFiles);
+  }
+  return availableLayouts;
+}
+
 export async function GET() {
   try {
     await requireAdmin();
@@ -46,50 +89,13 @@ export async function GET() {
       orderBy: { pageName: "asc" }
     });
 
-    // Scan home layouts directory dynamically
-    const layoutsDir = path.join(process.cwd(), "components", "home-layouts");
-    const availableLayouts: Array<{ id: string; name: string; description: string }> = [];
-    const layoutFiles: string[] = [];
-
-    if (fs.existsSync(layoutsDir)) {
-      const files = fs.readdirSync(layoutsDir);
-      for (const file of files) {
-        if (file.endsWith(".tsx") && file !== "registry.ts") {
-          layoutFiles.push(file);
-          const filePath = path.join(layoutsDir, file);
-          const content = fs.readFileSync(filePath, "utf-8");
-
-          // Default fallback values
-          const id = file.replace(/\.tsx$/, "");
-          let name = id.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-          let description = "Custom home page layout.";
-
-          // Regex matching for exported metadata
-          const nameMatch = content.match(/name\s*:\s*["']([^"']+)["']/);
-          const descMatch = content.match(/description\s*:\s*["']([^"']+)["']/);
-
-          if (nameMatch) {
-            name = nameMatch[1];
-          }
-          if (descMatch) {
-            description = descMatch[1];
-          }
-
-          availableLayouts.push({
-            id,
-            name,
-            description
-          });
-        }
-      }
-      
-      // Auto-generate registry mappings to support static bundle code-splitting
-      updateRegistryFile(layoutsDir, layoutFiles);
-    }
+    const availableLayouts = scanLayouts("home-layouts");
+    const availableReaderLayouts = scanLayouts("reader-layouts");
 
     return ok({
       layouts,
-      availableLayouts
+      availableLayouts, // home layouts
+      availableReaderLayouts
     });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to fetch page layouts", 500);

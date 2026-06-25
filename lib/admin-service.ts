@@ -1,3 +1,4 @@
+import { getSubscriptionStats } from "@/lib/subscription-service";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { mapDbStoryToCard } from "@/lib/content-service";
@@ -47,7 +48,8 @@ export async function getAdminDashboardData(searchQuery = "") {
     purchasesIn30Days,
     usersIn30Days,
     storyPopularityData,
-    mostViewedChaptersData
+    mostViewedChaptersData,
+    subscriptionStats
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { status: "ACTIVE" } }),
@@ -152,7 +154,8 @@ export async function getAdminDashboardData(searchQuery = "") {
         _count: { select: { readingHistory: true, purchases: true } }
       },
       take: 5
-    })
+    }),
+    getSubscriptionStats()
   ]);
 
   const dailyData: Record<string, { date: string; revenue: number; coins: number; chapterSales: number; users: number }> = {};
@@ -256,7 +259,8 @@ export async function getAdminDashboardData(searchQuery = "") {
       published: link.story.published,
       cloudFileCount: link._count.files,
       cloudUpdatedAt: link.workspaceMaterializedAt?.toISOString() || null
-    }))
+    })),
+    subscriptionStats
   };
 }
 

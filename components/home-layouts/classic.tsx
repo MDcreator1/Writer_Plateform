@@ -1050,11 +1050,97 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
       window.location.href = "/auth";
       return;
     }
-    showToast(`Initiating subscription pass: ${pack.name} (Price: ₹${pack.price}/${pack.period}) - connecting to payment handler.`, "info");
+    setCheckoutSubscriptionId(pack.id);
+    try {
+      const response = await fetch("/api/wallet/subscription/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planType: pack.period === "week" ? "WEEKLY" : pack.period === "month" ? "MONTHLY" : "YEARLY"
+        })
+      });
+      const payload = (await response.json()) as ApiResponse<{
+        checkout: RazorpayCheckoutConfig & { subscriptionId: string; plan: { type: string; dailyCoins: number; periodDays: number; totalCoins: number; price: number } };
+      }>;
+
+      if (!payload.ok) {
+        throw new Error(payload.error.message);
+      }
+
+      const { checkout } = payload.data;
+      await loadRazorpayScript();
+
+      if (!window.Razorpay) {
+        throw new Error("Razorpay Checkout did not load.");
+      }
+
+      const razorpay = new window.Razorpay({
+        key: checkout.keyId,
+        amount: checkout.amount,
+        currency: checkout.currency,
+        name: "Velora Fiction",
+        description: `${checkout.plan.type} Subscription — ${checkout.plan.periodDays} days`,
+        order_id: checkout.orderId,
+        prefill: {
+          name: checkout.prefill.name || currentUser?.username || undefined,
+          email: checkout.prefill.email || currentUser?.email || undefined
+        },
+        notes: {
+          paymentId: checkout.paymentId,
+          subscriptionId: checkout.subscriptionId,
+          planType: checkout.plan.type
+        },
+        method: {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false
+        },
+        theme: { color: "#14b8a6" },
+        modal: {
+          ondismiss: () => setCheckoutSubscriptionId(null)
+        },
+        handler: async (razorpayResponse) => {
+          try {
+            const verifyResponse = await fetch("/api/wallet/subscription/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                paymentId: checkout.paymentId,
+                subscriptionId: checkout.subscriptionId,
+                ...razorpayResponse
+              })
+            });
+            const verifyPayload = (await verifyResponse.json()) as ApiResponse<{
+              status: "activated" | "already_active";
+              subscriptionId: string;
+              coinsCredited: number;
+              walletBalance: number;
+              expiresAt: Date;
+            }>;
+
+            if (!verifyPayload.ok) {
+              throw new Error(verifyPayload.error.message);
+            }
+
+            window.location.href = "/dashboard";
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : "Subscription could not be verified.", "error");
+            setCheckoutSubscriptionId(null);
+          }
+        }
+      });
+
+      razorpay.open();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to start subscription payment.", "error");
+      setCheckoutSubscriptionId(null);
+    }
   }
   const [profileOpen, setProfileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [checkoutPackageId, setCheckoutPackageId] = useState<string | null>(null);
+  const [checkoutSubscriptionId, setCheckoutSubscriptionId] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileName = currentUser?.displayName || currentUser?.username || "Reader";
   const profileInitial = profileName.charAt(0).toUpperCase();
@@ -1140,9 +1226,9 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
         },
         method: {
           upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
+          card: false,
+          netbanking: false,
+          wallet: false
         },
         theme: { color: "#14b8a6" },
         modal: {

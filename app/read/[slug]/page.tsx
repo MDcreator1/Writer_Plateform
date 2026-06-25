@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ReaderPage } from "@/components/reader-page";
 import { getCurrentUser } from "@/lib/auth";
-import { getPublishedStoryCardBySlug, getReaderStoryBySlug } from "@/lib/content-service";
+import { getPublishedStoryCardBySlug, getPublishedStoryCards, getReaderStoryBySlug, getStoryStudioData } from "@/lib/content-service";
 import { hashEmail } from "@/lib/security";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -38,16 +39,27 @@ export default async function Page({ params }: PageProps) {
   }
 
   const { slug } = await params;
-  const readerStory = await getReaderStoryBySlug(slug, user.id);
+  
+  const [readerStory, allStories, layoutConfig] = await Promise.all([
+    getReaderStoryBySlug(slug, user.id),
+    getPublishedStoryCards(),
+    prisma.pageLayout.findUnique({ where: { pageName: "reader" } })
+  ]);
 
   if (!readerStory) {
     notFound();
   }
 
+  const studioData = await getStoryStudioData(readerStory.story.id);
+  const recommendations = allStories.filter((s) => s.id !== readerStory.story.id);
+
   return (
     <ReaderPage
       story={readerStory.story}
       initialCoinBalance={readerStory.walletBalance}
+      activeLayout={layoutConfig?.layoutName ?? "classic"}
+      recommendations={recommendations}
+      studioData={studioData}
       currentUser={{
         id: user.id,
         username: user.username || user.displayName || "Reader",

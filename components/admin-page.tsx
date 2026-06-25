@@ -123,6 +123,14 @@ type AdminPageProps = {
       cloudFileCount: number;
       cloudUpdatedAt: string | null;
     }>;
+    subscriptionStats: {
+      totalActive: number;
+      totalExpired: number;
+      weeklyActive: number;
+      monthlyActive: number;
+      yearlyActive: number;
+      totalRevenue: number;
+    };
   };
 };
 
@@ -266,8 +274,10 @@ export function AdminPage({ data }: AdminPageProps) {
 
   // --- Layouts Management States ---
   const [homeLayout, setHomeLayout] = useState("classic");
+  const [readerLayout, setReaderLayout] = useState("classic");
   const [loadingLayouts, setLoadingLayouts] = useState(false);
   const [availableLayouts, setAvailableLayouts] = useState<any[]>([]);
+  const [availableReaderLayouts, setAvailableReaderLayouts] = useState<any[]>([]);
 
 
   // --- Monetization management states ---
@@ -526,7 +536,12 @@ export function AdminPage({ data }: AdminPageProps) {
         if (home) {
           setHomeLayout(home.layoutName);
         }
+        const reader = layoutsList.find((l: any) => l.pageName === "reader");
+        if (reader) {
+          setReaderLayout(reader.layoutName);
+        }
         setAvailableLayouts(body.data?.availableLayouts || []);
+        setAvailableReaderLayouts(body.data?.availableReaderLayouts || []);
       }
     } catch (err) {
       showToast("Error loading page layouts", "error");
@@ -547,6 +562,8 @@ export function AdminPage({ data }: AdminPageProps) {
         showToast("Page layout updated successfully!", "success");
         if (pageName === "home") {
           setHomeLayout(layoutName);
+        } else if (pageName === "reader") {
+          setReaderLayout(layoutName);
         }
       } else {
         showToast(body.error?.message || "Failed to update layout", "error");
@@ -1322,7 +1339,7 @@ export function AdminPage({ data }: AdminPageProps) {
     { key: "verifiedPhone", label: "Verified Phone", value: formatNumber(data.analytics.verifiedPhoneUsers), icon: ShieldCheck, detail: "OTP verified phone users" },
     { key: "totalRevenue", label: "Total Revenue", value: `Rs. ${formatNumber(data.analytics.totalRevenue)}`, icon: CreditCard, detail: "All-time sales" },
     { key: "monthlyRevenue", label: "Monthly Revenue", value: `Rs. ${formatNumber(data.analytics.monthlyRevenue)}`, icon: Calendar, detail: "Last 30 days revenue" },
-    { key: "subscriptionRevenue", label: "Subscription Revenue", value: `Rs. ${formatNumber(data.analytics.subscriptionRevenue)}`, icon: Crown, detail: "Recurring packages" },
+    { key: "subscriptionRevenue", label: "Subscription Revenue", value: `Rs. ${formatNumber(data.subscriptionStats.totalRevenue)}`, icon: Crown, detail: "Active subscription revenue" },
     { key: "coinSales", label: "Coin Sales", value: `${formatNumber(data.analytics.totalCoinSales)}`, icon: Coins, detail: "Total coins credited" },
     { key: "pendingRefunds", label: "Pending Refunds", value: formatNumber(data.analytics.pendingRefunds), icon: RotateCcw, detail: "Refund requests queue" },
     { key: "failedPayments", label: "Failed Payments", value: formatNumber(data.analytics.failedPayments), icon: AlertTriangle, detail: "Razorpay check errors" },
@@ -3763,6 +3780,21 @@ export function AdminPage({ data }: AdminPageProps) {
 
                   {monetizationSubTab === "subscriptions" && (
                     <div className="space-y-6 animate-in fade-in duration-200">
+                      {/* Subscription Stats */}
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                          { label: "Active Subscriptions", value: data.subscriptionStats.totalActive, color: "text-accent" },
+                          { label: "Expired Subscriptions", value: data.subscriptionStats.totalExpired, color: "text-muted" },
+                          { label: "Subscription Revenue", value: `Rs. ${formatNumber(data.subscriptionStats.totalRevenue)}`, color: "text-success" },
+                          { label: "Conversion Rate", value: `${data.analytics.conversionRate.toFixed(1)}%`, color: "text-accent2" }
+                        ].map((stat) => (
+                          <div key={stat.label} className="lm-card p-4 border border-border rounded-xl bg-surface/50">
+                            <span className="text-[10px] uppercase font-bold text-muted block">{stat.label}</span>
+                            <span className={`text-2xl font-display font-bold ${stat.color} mt-1`}>{stat.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
                       {/* Previews of the Three subscription boxes */}
                       <div className="grid gap-6 md:grid-cols-3">
                         {/* Box 1: Weekly */}
@@ -4072,6 +4104,43 @@ export function AdminPage({ data }: AdminPageProps) {
                             <button
                               key={item.id}
                               onClick={() => handleUpdateLayout("home", item.id)}
+                              className={`flex flex-col text-left p-5 rounded-xl border-2 transition-all ${
+                                active
+                                  ? "border-accent bg-accent/5"
+                                  : "border-border/60 hover:border-accent bg-surface-soft/20 hover:bg-surface-soft/40"
+                              }`}
+                            >
+                              <span className="font-bold text-sm text-ink mb-2">{item.name}</span>
+                              <span className="text-xs text-muted leading-relaxed">{item.description}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-surface border border-border rounded-2xl p-6 space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-ink mb-1">Reader Page Layout</h3>
+                    <p className="text-xs text-muted mb-4">Select the reader page layout style (Classic sidebar reader or Cinematic immersive dashboard).</p>
+
+                    {loadingLayouts ? (
+                      <div className="py-12 text-center text-sm text-muted">Loading layouts settings...</div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        {(availableReaderLayouts.length > 0 ? availableReaderLayouts : [
+                          {
+                            id: "classic",
+                            name: "Classic Reader",
+                            description: "Traditional clean page layout with configurable fonts and side drawer navigation."
+                          }
+                        ]).map((item) => {
+                          const active = readerLayout === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleUpdateLayout("reader", item.id)}
                               className={`flex flex-col text-left p-5 rounded-xl border-2 transition-all ${
                                 active
                                   ? "border-accent bg-accent/5"

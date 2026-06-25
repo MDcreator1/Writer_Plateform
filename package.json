@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/start-hybrid.mjs dev",
     "build": "next build",
-    "start": "node scripts/start-hybrid.mjs start",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "studio:start": "node Writer_studio/server.mjs",
     "studio:backfill": "tsx scripts/backfill-studio-workspaces.ts",
     "lint": "eslint .",
@@ -29,6 +29,7 @@
     "razorpay": "^2.9.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "stripe": "^22.3.0",
     "tailwind-scrollbar": "^3.1.0",
     "three": "^0.184.0",
     "zod": "^3.25.64"

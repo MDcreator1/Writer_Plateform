@@ -28,7 +28,8 @@ function mapChapter(chapter: DbChapter, unlockedChapterIds = new Set<string>()) 
     coinPrice: chapter.coinPrice,
     readTime: `${Math.max(6, Math.min(14, Math.round((chapter.excerpt?.length || 600) / 90)))} min`,
     excerpt: chapter.excerpt || "A premium chapter from this serialized story.",
-    content: []
+    content: [],
+    publishedAt: chapter.publishedAt || chapter.createdAt
   };
 }
 
@@ -144,5 +145,34 @@ export async function getReaderStoryBySlug(slug: string, userId: string) {
   } catch {
     const fallback = fallbackStories.find((story) => story.slug === slug) ?? null;
     return fallback ? { story: fallback, walletBalance: 0 } : null;
+  }
+}
+
+export async function getStoryStudioData(storyId: string) {
+  try {
+    const link = await prisma.studioProjectLink.findUnique({
+      where: { storyId: storyId }
+    });
+    if (!link) return null;
+
+    const [namingFile, manifestFile] = await Promise.all([
+      prisma.studioProjectFile.findUnique({
+        where: { studioProjectId_path: { studioProjectId: link.id, path: "Story_Naming.json" } }
+      }),
+      prisma.studioProjectFile.findUnique({
+        where: { studioProjectId_path: { studioProjectId: link.id, path: "Chapters_info.json" } }
+      })
+    ]);
+
+    const naming = namingFile && namingFile.jsonContent ? (namingFile.jsonContent as any) : null;
+    const manifest = manifestFile && manifestFile.jsonContent ? (manifestFile.jsonContent as any) : null;
+
+    return {
+      naming,
+      manifest
+    };
+  } catch (err) {
+    console.error("Error fetching story studio data", err);
+    return null;
   }
 }

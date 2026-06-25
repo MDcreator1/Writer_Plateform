@@ -5,6 +5,7 @@ import Razorpay from "razorpay";
 import { prisma } from "@/lib/prisma";
 import { getActiveScheduledDiscount } from "@/lib/discount-campaigns";
 import { getMonetizationSettings } from "@/lib/monetization-service";
+import { activateSubscription, markSubscriptionFailed } from "@/lib/subscription-service";
 
 type RazorpayOrder = {
   id: string;
@@ -163,7 +164,7 @@ export async function createRazorpayCoinOrder(input: {
   };
 }
 
-async function findPaymentForProcessing(input: { paymentId?: string; orderId?: string; providerPaymentId?: string }) {
+export async function findPaymentForProcessing(input: { paymentId?: string; orderId?: string; providerPaymentId?: string }) {
   return prisma.payment.findFirst({
     where: {
       provider: PaymentProvider.RAZORPAY,
@@ -351,6 +352,8 @@ export async function markRazorpayPaymentFailed(input: {
   return { status: "failed" as const, paymentId: payment.id };
 }
 
+
+
 function getWebhookEntity(payload: RazorpayWebhookPayload) {
   return payload.payload?.payment?.entity ?? payload.payload?.order?.entity ?? null;
 }
@@ -395,21 +398,65 @@ export async function handleRazorpayWebhook(rawBody: string, signature: string) 
   let result: unknown = { status: "ignored" };
 
   if ((eventType === "payment.captured" || eventType === "order.paid") && orderId) {
-    result = await creditCoinsForVerifiedPayment({
-      orderId,
-      providerPaymentId,
-      paymentMethod: paymentEntity?.method ?? null,
-      rawPayload: { ...payload, source: "webhook" }
-    });
+    const payment = await findPaymentForProcessing({ orderId, providerPaymentId });
+    if (payment) {
+      if (payment.subscriptionId) {
+        result = await activateSubscriptionForVerifiedPayment({
+          orderId,
+          providerPaymentId,
+          paymentMethod: paymentEntity?.method ?? null,
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      } else {
+        result = await creditCoinsForVerifiedPayment({
+          orderId,
+          providerPaymentId,
+          paymentMethod: paymentEntity?.method ?? null,
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      }
+    } else {
+      const subscription = await findSubscriptionForProcessing({ orderId, providerPaymentId });
+      if (subscription) {
+        result = await activateSubscriptionForVerifiedPayment({
+          orderId,
+          providerPaymentId,
+          paymentMethod: paymentEntity?.method ?? null,
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      }
+    }
   }
 
   if (eventType === "payment.failed") {
-    result = await markRazorpayPaymentFailed({
-      orderId,
-      providerPaymentId,
-      reason: paymentEntity?.status || "Payment failed",
-      rawPayload: { ...payload, source: "webhook" }
-    });
+    const payment = await findPaymentForProcessing({ orderId, providerPaymentId });
+    if (payment) {
+      if (payment.subscriptionId) {
+        result = await markRazorpaySubscriptionFailed({
+          orderId,
+          providerPaymentId,
+          reason: paymentEntity?.status || "Payment failed",
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      } else {
+        result = await markRazorpayPaymentFailed({
+          orderId,
+          providerPaymentId,
+          reason: paymentEntity?.status || "Payment failed",
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      }
+    } else {
+      const subscription = await findSubscriptionForProcessing({ orderId, providerPaymentId });
+      if (subscription) {
+        result = await markRazorpaySubscriptionFailed({
+          orderId,
+          providerPaymentId,
+          reason: paymentEntity?.status || "Payment failed",
+          rawPayload: { ...payload, source: "webhook" }
+        });
+      }
+    }
   }
 
   await prisma.paymentWebhookEvent.update({
@@ -418,4 +465,228 @@ export async function handleRazorpayWebhook(rawBody: string, signature: string) 
   });
 
   return { status: "processed" as const, eventId, result };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Subscription helpers
+// ─────────────────────────────────────────────────────────────
+
+async function findSubscriptionForProcessing(input: { orderId?: string; providerPaymentId?: string }) {
+  return prisma.subscription.findFirst({
+    where: {
+      provider: PaymentProvider.RAZORPAY,
+      OR: [
+        input.orderId ? { providerOrderId: input.orderId } : undefined,
+        input.providerPaymentId ? { providerPaymentId: input.providerPaymentId } : undefined
+      ].filter(Boolean) as Prisma.SubscriptionWhereInput[]
+    }
+  });
+}
+
+async function activateSubscriptionForVerifiedPayment(input: {
+  orderId?: string;
+  providerPaymentId?: string;
+  paymentMethod?: string | null;
+  rawPayload: unknown;
+}) {
+  const subscription = await findSubscriptionForProcessing(input);
+  if (!subscription) {
+    return { status: "ignored" as const };
+  }
+  const result = await activateSubscription({
+    subscriptionId: subscription.id,
+    providerPaymentId: input.providerPaymentId,
+    rawPayload: input.rawPayload
+  });
+
+  await prisma.payment.updateMany({
+    where: {
+      subscriptionId: subscription.id,
+      status: { not: PaymentStatus.PAID }
+    },
+    data: {
+      status: PaymentStatus.PAID,
+      providerPaymentId: input.providerPaymentId,
+      paymentMethod: input.paymentMethod,
+      processedAt: new Date(),
+      rawPayload: toJson(input.rawPayload)
+    }
+  });
+
+  return result;
+}
+
+async function markRazorpaySubscriptionFailed(input: {
+  orderId?: string;
+  providerPaymentId?: string;
+  reason?: string;
+  rawPayload: unknown;
+}) {
+  const subscription = await findSubscriptionForProcessing(input);
+  if (!subscription || subscription.status === "ACTIVE") {
+    return { status: "ignored" as const };
+  }
+  await markSubscriptionFailed(subscription.id, input.reason);
+
+  await prisma.payment.updateMany({
+    where: {
+      subscriptionId: subscription.id,
+      status: { not: PaymentStatus.PAID }
+    },
+    data: {
+      status: PaymentStatus.FAILED,
+      providerPaymentId: input.providerPaymentId,
+      failureReason: input.reason ?? "Payment failed",
+      rawPayload: toJson(input.rawPayload)
+    }
+  });
+
+  return { status: "failed" as const, subscriptionId: subscription.id };
+}
+
+export async function createRazorpaySubscriptionOrder(input: {
+  userId: string;
+  userEmail: string;
+  username: string;
+  planType: "WEEKLY" | "MONTHLY" | "YEARLY";
+}) {
+  const { getSubscriptionPlanDetails, createSubscriptionRecord } = await import("@/lib/subscription-service");
+  const details = await getSubscriptionPlanDetails(input.planType);
+
+  const payment = await prisma.payment.create({
+    data: {
+      userId: input.userId,
+      provider: PaymentProvider.RAZORPAY,
+      status: PaymentStatus.CREATED,
+      amountCents: details.discountedPriceCents,
+      currency: details.currency,
+      coinsAdded: details.totalCoins
+    }
+  });
+
+  const razorpay = getRazorpayClient();
+  const order = (await razorpay.orders.create({
+    amount: details.discountedPriceCents,
+    currency: details.currency,
+    receipt: payment.id.slice(0, 40),
+    notes: {
+      paymentId: payment.id,
+      userId: input.userId,
+      planType: input.planType,
+      coins: String(details.totalCoins)
+    }
+  })) as RazorpayOrder;
+
+  const subscription = await createSubscriptionRecord({
+    userId: input.userId,
+    planType: input.planType,
+    details,
+    provider: PaymentProvider.RAZORPAY,
+    providerOrderId: order.id,
+    amountCents: details.discountedPriceCents
+  });
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      providerOrderId: order.id,
+      status: PaymentStatus.PENDING,
+      subscriptionId: subscription.id,
+      rawPayload: toJson({ order, subscriptionId: subscription.id })
+    }
+  });
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      rawPayload: toJson({ order, paymentId: payment.id })
+    }
+  });
+
+  return {
+    paymentId: payment.id,
+    subscriptionId: subscription.id,
+    keyId: getPublicRazorpayKey(),
+    orderId: order.id,
+    amount: details.discountedPriceCents,
+    currency: details.currency,
+    plan: {
+      type: input.planType,
+      dailyCoins: details.dailyCoins,
+      periodDays: details.periodDays,
+      totalCoins: details.totalCoins,
+      price: details.discountedPriceCents / 100
+    },
+    prefill: {
+      email: input.userEmail,
+      name: input.username
+    }
+  };
+}
+
+export async function verifyAndCreditRazorpaySubscription(input: {
+  paymentId: string;
+  subscriptionId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}) {
+  if (!verifyRazorpayPaymentSignature({
+    orderId: input.razorpayOrderId,
+    paymentId: input.razorpayPaymentId,
+    signature: input.razorpaySignature
+  })) {
+    throw new Error("Invalid Razorpay payment signature.");
+  }
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: input.paymentId }
+  });
+
+  if (!payment || payment.provider !== PaymentProvider.RAZORPAY) {
+    throw new Error("Payment record was not found.");
+  }
+
+  if (payment.providerOrderId !== input.razorpayOrderId) {
+    throw new Error("Payment order mismatch.");
+  }
+
+  const razorpay = getRazorpayClient();
+  const [order, providerPayment] = await Promise.all([
+    razorpay.orders.fetch(input.razorpayOrderId) as Promise<RazorpayOrder>,
+    razorpay.payments.fetch(input.razorpayPaymentId) as Promise<RazorpayPayment>
+  ]);
+
+  if (providerPayment.order_id !== input.razorpayOrderId) {
+    throw new Error("Razorpay payment does not belong to this order.");
+  }
+
+  if (providerPayment.amount !== payment.amountCents || providerPayment.currency !== payment.currency) {
+    throw new Error("Razorpay payment amount mismatch.");
+  }
+
+  const orderPaid = order.status === "paid";
+  const paymentCaptured = providerPayment.status === "captured" || providerPayment.captured === true;
+
+  if (!orderPaid && !paymentCaptured) {
+    throw new Error("Payment has not been captured yet.");
+  }
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      status: PaymentStatus.PAID,
+      providerPaymentId: input.razorpayPaymentId,
+      paymentMethod: providerPayment.method ?? null,
+      processedAt: new Date(),
+      rawPayload: toJson({ order, payment: providerPayment, source: "frontend_verify_subscription" })
+    }
+  });
+
+  const { activateSubscription } = await import("@/lib/subscription-service");
+  return activateSubscription({
+    subscriptionId: input.subscriptionId,
+    providerPaymentId: input.razorpayPaymentId,
+    rawPayload: { order, payment: providerPayment, source: "frontend_verify" }
+  });
 }

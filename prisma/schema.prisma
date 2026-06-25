@@ -47,6 +47,7 @@ model User {
   wallet             Wallet?
   phoneVerifications PhoneVerification[]
   commentReports     CommentReport[]
+  subscriptions      Subscription[]
 }
 
 model AuthAccount {
@@ -290,6 +291,7 @@ model Payment {
   currency          String          @default("INR")
   rawPayload        Json?
   failureReason     String?
+  subscriptionId    String?
   processedAt       DateTime?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -317,6 +319,32 @@ model PaymentWebhookEvent {
   @@index([provider, eventType])
   @@index([orderId])
   @@index([paymentId])
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String
+  planType           SubscriptionPlan   @default(WEEKLY)
+  status             SubscriptionStatus @default(PENDING)
+  dailyCoins         Int                @default(10)
+  periodDays         Int                @default(7)
+  startedAt          DateTime?
+  expiresAt          DateTime?
+  provider           PaymentProvider
+  providerOrderId    String?
+  providerPaymentId  String?
+  amountCents        Int
+  currency           String             @default("INR")
+  totalCoinsCredited Int                @default(0)
+  rawPayload         Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@unique([provider, providerOrderId])
+  @@unique([provider, providerPaymentId])
 }
 
 model Purchase {
@@ -541,12 +569,14 @@ enum TransactionType {
   UNLOCK
   REFUND
   ADJUSTMENT
+  SUBSCRIPTION
 }
 
 enum PaymentProvider {
   RAZORPAY
   STRIPE
   PAYPAL
+  CASHFREE
 }
 
 enum PaymentStatus {
@@ -562,6 +592,20 @@ enum SuspiciousSeverity {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum SubscriptionPlan {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  FAILED
 }
 
 model PhoneVerification {
