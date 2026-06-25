@@ -1,9 +1,11 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, Sparkles, Upload } from "lucide-react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { CustomSelect } from "@/components/custom-select";
+import { useSearchParams } from "next/navigation";
 
 const DRAFT_STORAGE_KEY = "velora_story_studio_draft";
 const MIN_TAGS = 2;
@@ -47,6 +49,7 @@ type StoryStudioForm = {
   invitationCode: string;
   coverDataUrl: string;
   draftId: string;
+  projectId: string;
 };
 
 const initialForm: StoryStudioForm = {
@@ -64,7 +67,8 @@ const initialForm: StoryStudioForm = {
   warningNotice: "",
   invitationCode: "",
   coverDataUrl: "",
-  draftId: ""
+  draftId: "",
+  projectId: ""
 };
 
 function parseTags(value: string) {
@@ -92,11 +96,25 @@ function FieldLabel({ children, count }: { children: React.ReactNode; count?: st
   );
 }
 
-function selectClassName() {
-  return "lm-input appearance-none pr-9";
-}
 
 export function CreateStoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted font-semibold">Loading story studio...</div>}>
+      <CreateStoryFormContent />
+    </Suspense>
+  );
+}
+
+function CreateStoryFormContent() {
+  const searchParams = useSearchParams();
+  const paramStoryId = searchParams.get("storyId") || "";
+  const paramProjectId = searchParams.get("projectId") || "";
+  const paramTitle = searchParams.get("title") || "";
+  const paramAuthor = searchParams.get("author") || "";
+  const paramSynopsis = searchParams.get("synopsis") || "";
+  const paramLanguage = searchParams.get("language") || "";
+  const paramStoryType = searchParams.get("storyType") || "";
+
   const [form, setForm] = useState<StoryStudioForm>(initialForm);
   const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(false);
   const [status, setStatus] = useState("Draft not saved yet");
@@ -115,6 +133,20 @@ export function CreateStoryPage() {
   }).slice(0, 18);
 
   useEffect(() => {
+    if (paramStoryId || paramProjectId || paramTitle) {
+      setForm((current) => ({
+        ...current,
+        draftId: paramStoryId || current.draftId,
+        projectId: paramProjectId || current.projectId,
+        storyTitle: paramTitle || current.storyTitle,
+        synopsis: paramSynopsis || current.synopsis,
+        language: paramLanguage === "hi" ? "hindi" : (paramLanguage === "en" ? "english" : current.language),
+        storyType: paramStoryType || current.storyType
+      }));
+      setStatus("Story metadata pre-filled from Writing Studio.");
+      return;
+    }
+
     const stored = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!stored) {
       return;
@@ -129,7 +161,7 @@ export function CreateStoryPage() {
     } catch {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
     }
-  }, []);
+  }, [paramStoryId, paramProjectId, paramTitle, paramAuthor, paramSynopsis, paramLanguage, paramStoryType]);
 
   function updateField<Key extends keyof StoryStudioForm>(key: Key, value: StoryStudioForm[Key]) {
     setError("");
@@ -148,13 +180,20 @@ export function CreateStoryPage() {
     setTagSuggestionsOpen(nextTags.length < MAX_TAGS);
   }
 
-  function validateForCreate() {
+  // When publishing (from Studio draft), all fields are required.
+  // When saving as unpublished from platform, only title + genre are required.
+  function validateForCreate(publishing = false) {
     if (!form.storyTitle.trim()) {
       return "Book name is required.";
     }
 
     if (!form.genre) {
       return "Please select genre.";
+    }
+
+    if (!publishing) {
+      // Relaxed: only title and genre needed for unpublished drafts
+      return "";
     }
 
     if (!form.leadingGender) {
@@ -177,7 +216,7 @@ export function CreateStoryPage() {
   }
 
   async function persistStory(published: boolean) {
-    const validationError = published ? validateForCreate() : "";
+    const validationError = validateForCreate(published);
 
     if (validationError) {
       setError(validationError);
@@ -207,21 +246,13 @@ export function CreateStoryPage() {
         throw new Error(data?.error?.message || "Story save failed.");
       }
 
-      const savedDraft = {
-        ...form,
-        storyTitle,
-        draftId: data?.data?.id || form.draftId,
-        updatedAt: new Date().toISOString()
-      };
 
-      if (published) {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
-        setStatus("Story created successfully.");
-      } else {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(savedDraft));
-        setForm((current) => ({ ...current, draftId: savedDraft.draftId }));
-        setStatus(`Draft saved (${new Date().toLocaleTimeString()})`);
-      }
+      // Always redirect to admin after save so draft appears in Unpublished Stories section.
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setStatus(published ? "Story published! Redirecting..." : "Draft saved! Redirecting to admin...");
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 1200);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Story save failed.");
     } finally {
@@ -252,7 +283,9 @@ export function CreateStoryPage() {
             </span>
             <span>
               <span className="block font-display text-xl font-semibold leading-none text-ink">Story Studio</span>
-              <span className="text-xs font-medium uppercase tracking-[0.22em] text-muted">New story</span>
+              <span className="text-xs font-medium uppercase tracking-[0.22em] text-muted">
+                {form.draftId ? "Publish draft" : "New story"}
+              </span>
             </span>
           </Link>
           <div className="flex items-center gap-3">
@@ -268,7 +301,9 @@ export function CreateStoryPage() {
       <section className="new-story-main mx-auto w-full max-w-6xl px-5 py-10">
         <div className="form-shell lm-card p-5 md:p-6">
           <div className="form-title-row flex items-center justify-between gap-4 border-b border-border pb-4">
-            <h1 className="font-display text-lg font-semibold uppercase tracking-[0.18em] text-ink">Information</h1>
+            <h1 className="font-display text-lg font-semibold uppercase tracking-[0.18em] text-ink">
+              {form.draftId ? "Publish Studio Story" : "Information"}
+            </h1>
             <span className="inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent3">
               <Sparkles className="h-3.5 w-3.5" />
               Admin
@@ -281,7 +316,9 @@ export function CreateStoryPage() {
             noValidate
             onSubmit={(event) => {
               event.preventDefault();
-              void persistStory(true);
+              // Studio drafts (with draftId) publish directly; platform-created stories save as unpublished.
+              const shouldPublish = Boolean(form.draftId);
+              void persistStory(shouldPublish);
             }}
           >
             <div className="top-info-grid grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start">
@@ -303,37 +340,36 @@ export function CreateStoryPage() {
 
                 <div>
                   <FieldLabel>Genre</FieldLabel>
-                  <select
-                    id="genre"
-                    name="genre"
-                    required
-                    className={selectClassName()}
+                  <CustomSelect
                     value={form.genre}
-                    onChange={(event) => updateField("genre", event.target.value)}
-                  >
-                    <option value="">Select</option>
-                    <option value="fantasy">Fantasy</option>
-                    <option value="romance">Romance</option>
-                    <option value="mystery">Mystery</option>
-                    <option value="history">History</option>
-                    <option value="fiction">Fiction</option>
-                  </select>
+                    onChange={(val) => updateField("genre", val)}
+                    options={[
+                      { value: "fantasy", label: "Fantasy" },
+                      { value: "romance", label: "Romance" },
+                      { value: "mystery", label: "Mystery" },
+                      { value: "history", label: "History" },
+                      { value: "fiction", label: "Fiction" }
+                    ]}
+                    placeholder="Select"
+                    size="md"
+                    triggerClassName="bg-surface border-border hover:border-accent w-full"
+                  />
                 </div>
 
                 <div>
                   <FieldLabel>Language</FieldLabel>
-                  <select
-                    id="language"
-                    name="language"
-                    required
-                    className={selectClassName()}
+                  <CustomSelect
                     value={form.language}
-                    onChange={(event) => updateField("language", event.target.value)}
-                  >
-                    <option value="english">English</option>
-                    <option value="hindi">Hindi</option>
-                    <option value="hinglish">Hinglish</option>
-                  </select>
+                    onChange={(val) => updateField("language", val)}
+                    options={[
+                      { value: "english", label: "English" },
+                      { value: "hindi", label: "Hindi" },
+                      { value: "hinglish", label: "Hinglish" }
+                    ]}
+                    placeholder="Select"
+                    size="md"
+                    triggerClassName="bg-surface border-border hover:border-accent w-full"
+                  />
                 </div>
 
                 <div>
@@ -410,18 +446,19 @@ export function CreateStoryPage() {
 
             <div>
               <FieldLabel>Tag Category And Tags</FieldLabel>
-              <select
-                id="tag_category"
-                name="tag_category"
-                className={selectClassName()}
+              <CustomSelect
                 value={form.tagCategory}
-                onChange={(event) => updateField("tagCategory", event.target.value)}
-              >
-                <option value="">Select category</option>
-                <option value="popular">Popular</option>
-                <option value="audience">Audience</option>
-                <option value="mood">Mood</option>
-              </select>
+                onChange={(val) => updateField("tagCategory", val)}
+                options={[
+                  { value: "", label: "Select category" },
+                  { value: "popular", label: "Popular" },
+                  { value: "audience", label: "Audience" },
+                  { value: "mood", label: "Mood" }
+                ]}
+                placeholder="Select category"
+                size="md"
+                triggerClassName="bg-surface border-border hover:border-accent w-full"
+              />
             </div>
 
             <div className="tag-picker relative" id="tag_picker">
@@ -481,49 +518,52 @@ export function CreateStoryPage() {
 
             <div>
               <FieldLabel>Length</FieldLabel>
-              <select
-                id="length"
-                name="length"
-                className={selectClassName()}
+              <CustomSelect
                 value={form.storyLength}
-                onChange={(event) => updateField("storyLength", event.target.value)}
-              >
-                <option value="">Select</option>
-                <option value="short">Short</option>
-                <option value="medium">Medium</option>
-                <option value="long">Long</option>
-              </select>
+                onChange={(val) => updateField("storyLength", val)}
+                options={[
+                  { value: "", label: "Select" },
+                  { value: "short", label: "Short" },
+                  { value: "medium", label: "Medium" },
+                  { value: "long", label: "Long" }
+                ]}
+                placeholder="Select"
+                size="md"
+                triggerClassName="bg-surface border-border hover:border-accent w-full"
+              />
             </div>
 
             <div>
               <FieldLabel>Writing Contest</FieldLabel>
-              <select
-                id="writing_contest"
-                name="writing_contest"
-                className={selectClassName()}
+              <CustomSelect
                 value={form.writingContest}
-                onChange={(event) => updateField("writingContest", event.target.value)}
-              >
-                <option value="">Select</option>
-                <option value="none">None</option>
-                <option value="monthly">Monthly Contest</option>
-              </select>
+                onChange={(val) => updateField("writingContest", val)}
+                options={[
+                  { value: "", label: "Select" },
+                  { value: "none", label: "None" },
+                  { value: "monthly", label: "Monthly Contest" }
+                ]}
+                placeholder="Select"
+                size="md"
+                triggerClassName="bg-surface border-border hover:border-accent w-full"
+              />
             </div>
 
             <div>
               <FieldLabel>Warning Notice</FieldLabel>
-              <select
-                id="warning_notice"
-                name="warning_notice"
-                className={selectClassName()}
+              <CustomSelect
                 value={form.warningNotice}
-                onChange={(event) => updateField("warningNotice", event.target.value)}
-              >
-                <option value="">Select</option>
-                <option value="none">None</option>
-                <option value="violence">Violence</option>
-                <option value="sensitive">Sensitive content</option>
-              </select>
+                onChange={(val) => updateField("warningNotice", val)}
+                options={[
+                  { value: "", label: "Select" },
+                  { value: "none", label: "None" },
+                  { value: "violence", label: "Violence" },
+                  { value: "sensitive", label: "Sensitive content" }
+                ]}
+                placeholder="Select"
+                size="md"
+                triggerClassName="bg-surface border-border hover:border-accent w-full"
+              />
             </div>
 
             <div>
@@ -562,7 +602,7 @@ export function CreateStoryPage() {
                 Save Draft
               </button> */}
               <button type="submit" id="create_story_btn" className="new-story-btn lm-btn-primary" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Create"}
+                {isSubmitting ? "Saving..." : (form.draftId ? "Publish Story" : "Save as Draft")}
               </button>
             </div>
           </form>

@@ -1,8 +1,8 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, BookOpen, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedStoryCards } from "@/lib/content-service";
 
@@ -47,8 +47,10 @@ export default async function StoriesPage() {
                 {story.cover ? (
                   <Image src={story.cover} alt={story.title} fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />
                 ) : (
-                  <div className="grid h-full place-items-center bg-surface-soft text-accent">
-                    <BookOpen className="h-12 w-12" />
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 via-accent2/15 to-surface-soft text-accent font-display text-7xl font-bold select-none border-b border-border shadow-inner">
+                    <span className="drop-shadow-[0_4px_12px_rgba(var(--accent-rgb),0.35)]">
+                      {story.storyType?.toLowerCase() === "novel" ? "N" : "S"}
+                    </span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />

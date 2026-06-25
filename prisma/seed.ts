@@ -1,4 +1,4 @@
-﻿import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { createCipheriv, createHash, randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
@@ -95,6 +95,7 @@ async function seedStories() {
         slug: seed.slug,
         title: seed.title,
         genre: seed.genre,
+        genres: [seed.genre],
         description: seed.description,
         authorName: seed.authorName,
         coverUrl: seed.coverUrl,
@@ -102,11 +103,14 @@ async function seedStories() {
         readsCount: seed.readsCount,
         ratingAverage: seed.ratingAverage,
         tags: seed.tags,
+        visibility: "PUBLIC",
+        publicationStatus: "PUBLISHED",
         published: true
       },
       update: {
         title: seed.title,
         genre: seed.genre,
+        genres: [seed.genre],
         description: seed.description,
         authorName: seed.authorName,
         coverUrl: seed.coverUrl,
@@ -114,6 +118,8 @@ async function seedStories() {
         readsCount: seed.readsCount,
         ratingAverage: seed.ratingAverage,
         tags: seed.tags,
+        visibility: "PUBLIC",
+        publicationStatus: "PUBLISHED",
         published: true
       }
     });

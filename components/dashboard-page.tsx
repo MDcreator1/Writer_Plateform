@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Bookmark,
   BookOpen,
@@ -18,7 +18,7 @@ import type { Story } from "@/lib/content";
 type DashboardPageProps = {
   user: {
     displayName: string | null;
-    username: string;
+    username: string | null;
     email: string;
   };
   data: {

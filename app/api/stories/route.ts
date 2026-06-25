@@ -1,11 +1,14 @@
+import { PublicationStatus, StoryOrigin, StoryVisibility } from "@prisma/client";
 import { z } from "zod";
 import { fail, ok } from "@/lib/api-response";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stories as demoStories } from "@/lib/content";
+import { ensureStudioWorkspaceForStory } from "@/lib/studio-workspace-service";
 
 const storySchema = z.object({
   draftId: z.string().optional(),
+  projectId: z.string().optional(),
   storyTitle: z.string().trim().min(1).max(70),
   genre: z.string().trim().min(1),
   language: z.string().trim().default("english"),
@@ -97,8 +100,9 @@ export async function POST(request: Request) {
       title: body.storyTitle,
       slug,
       genre: body.genre,
+      genres: [body.genre],
       description: body.synopsis || "Draft story summary pending.",
-      authorName: admin.displayName || admin.username,
+      authorName: admin.displayName || admin.username || admin.email || "Admin",
       coverUrl: body.coverDataUrl || body.coverUrl || null,
       language: body.language,
       storyType: body.storyType,
@@ -110,11 +114,37 @@ export async function POST(request: Request) {
       writingContest: body.writingContest || null,
       warningNotice: body.warningNotice || null,
       invitationCode: body.invitationCode || null,
+      visibility: body.published ? StoryVisibility.PUBLIC : StoryVisibility.PRIVATE,
+      publicationStatus: body.published ? PublicationStatus.PUBLISHED : PublicationStatus.DRAFT,
+      origin: existingDraft ? existingDraft.origin : (body.projectId ? StoryOrigin.STUDIO : StoryOrigin.PLATFORM),
       published: body.published
     };
     const story = existingDraft
       ? await prisma.story.update({ where: { id: existingDraft.id }, data: storyData })
       : await prisma.story.create({ data: storyData });
+
+    if (body.projectId) {
+      const existingLink = await prisma.studioProjectLink.findUnique({
+        where: { projectId: body.projectId }
+      });
+      if (!existingLink) {
+        await prisma.studioProjectLink.create({
+          data: {
+            projectId: body.projectId,
+            projectTitle: story.title,
+            storyId: story.id,
+            source: "STUDIO"
+          }
+        });
+      } else if (existingLink.storyId !== story.id) {
+        await prisma.studioProjectLink.update({
+          where: { projectId: body.projectId },
+          data: { storyId: story.id }
+        });
+      }
+    }
+
+    await ensureStudioWorkspaceForStory(story.id);
 
     return ok(story, { status: 201 });
   } catch (error) {

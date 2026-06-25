@@ -1,0 +1,156 @@
+.studio-platform-topbar-btn {
+  border: 1px solid var(--border-color, rgba(127, 127, 127, .28));
+  border-radius: 999px;
+  background: var(--panel-bg, rgba(255, 255, 255, .08));
+  color: var(--text-primary, inherit);
+  padding: .48rem .82rem;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+
+.studio-platform-topbar-btn:hover { border-color: var(--accent, #7c5cff); }
+
+.studio-platform-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: none;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 9, 18, .72);
+  backdrop-filter: blur(12px);
+}
+
+.studio-platform-modal.is-visible { display: grid; }
+
+.studio-platform-panel {
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  overflow: hidden;
+  border: 1px solid var(--border-color, rgba(127, 127, 127, .3));
+  border-radius: 1.25rem;
+  background: var(--panel-bg, #181824);
+  color: var(--text-primary, #f6f3ff);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .4);
+}
+
+.studio-platform-head,
+.studio-platform-section-head,
+.studio-platform-actions,
+.studio-platform-cloud-summary,
+.studio-platform-story-row,
+.studio-platform-chapter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.studio-platform-head { padding: 1.15rem 1.3rem; border-bottom: 1px solid var(--border-color, rgba(127, 127, 127, .25)); }
+.studio-platform-head span,
+.studio-platform-section-head span { font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .65; }
+.studio-platform-head h2,
+.studio-platform-section-head h3 { margin: .2rem 0 0; }
+.studio-platform-close { border: 0; background: transparent; color: inherit; font-size: 1.8rem; cursor: pointer; }
+.studio-platform-scroll { max-height: calc(92vh - 78px); overflow: auto; padding: 1.15rem; }
+
+.studio-platform-settings,
+.studio-platform-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: .8rem; }
+.studio-platform-settings,
+.studio-platform-current,
+.studio-platform-available {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color, rgba(127, 127, 127, .22));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel-bg, #181824) 88%, white 4%);
+}
+
+.studio-platform-settings label,
+.studio-platform-grid label { display: grid; gap: .35rem; }
+.studio-platform-settings label span,
+.studio-platform-grid label span { font-size: .72rem; font-weight: 700; opacity: .7; }
+.studio-platform-settings input,
+.studio-platform-grid input,
+.studio-platform-grid textarea {
+  min-width: 0;
+  border: 1px solid var(--border-color, rgba(127, 127, 127, .28));
+  border-radius: .65rem;
+  background: rgba(255, 255, 255, .06);
+  color: inherit;
+  padding: .72rem .78rem;
+  font: inherit;
+}
+
+.studio-platform-settings button,
+.studio-platform-section-head button,
+.studio-platform-story-row button,
+.studio-platform-actions button,
+.studio-platform-primary {
+  border: 1px solid var(--border-color, rgba(127, 127, 127, .28));
+  border-radius: .7rem;
+  background: rgba(255, 255, 255, .08);
+  color: inherit;
+  padding: .68rem .9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.studio-platform-primary { margin-top: .75rem; border-color: transparent; background: var(--accent, #7c5cff); color: white; }
+.studio-platform-settings button:disabled,
+.studio-platform-story-row button:disabled { cursor: not-allowed; opacity: .5; }
+.studio-platform-current p { color: var(--text-secondary, rgba(255,255,255,.68)); line-height: 1.55; }
+.studio-platform-badge { border-radius: 999px; background: rgba(61, 196, 126, .14); color: #55d995; padding: .38rem .65rem; font-size: .7rem; font-weight: 800; }
+.studio-platform-badge.is-local { background: rgba(250, 184, 71, .15); color: #f5bd5c; }
+.studio-platform-story-id code,
+.studio-platform-story-row code { display: block; margin-top: .25rem; font-size: .72rem; opacity: .65; }
+.studio-platform-cloud-summary { justify-content: flex-start; flex-wrap: wrap; margin: .8rem 0; }
+.studio-platform-cloud-summary span,
+.studio-platform-cloud-stats span { border-radius: 999px; background: rgba(255,255,255,.06); padding: .35rem .58rem; font-size: .72rem; }
+.studio-platform-cloud-stats { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0; }
+.studio-platform-chapters { margin: 1rem 0; }
+.studio-platform-chapter-row,
+.studio-platform-story-row { padding: .72rem 0; border-top: 1px solid var(--border-color, rgba(127, 127, 127, .18)); }
+.studio-platform-chapter-row small { display: block; margin-top: .2rem; opacity: .6; }
+.studio-platform-publish-toggle { font-size: .78rem; font-weight: 700; }
+.studio-platform-list > p,
+.studio-platform-empty { opacity: .65; }
+.studio-platform-wizard { margin-top: 1rem; border-top: 1px solid var(--border-color, rgba(127,127,127,.2)); padding-top: 1rem; }
+.studio-platform-wizard .wide { grid-column: 1 / -1; }
+.studio-platform-actions { justify-content: flex-end; margin-top: 1rem; }
+.studio-platform-actions-left { justify-content: flex-start; flex-wrap: wrap; }
+.studio-platform-actions .studio-platform-primary { margin-top: 0; }
+.studio-platform-message { min-height: 1.2rem; margin: .3rem .25rem 0; color: #55d995; font-size: .8rem; font-weight: 700; }
+.studio-platform-message.is-error { color: #ff7070; }
+
+@media (max-width: 720px) {
+  .studio-platform-settings,
+  .studio-platform-grid { grid-template-columns: 1fr; }
+  .studio-platform-wizard .wide { grid-column: auto; }
+  .studio-platform-section-head,
+  .studio-platform-story-row { align-items: flex-start; flex-direction: column; }
+}
+.studio-platform-story-row.is-launch-target {
+  margin-inline: -.5rem;
+  padding-inline: .5rem;
+  border: 1px solid color-mix(in srgb, var(--accent, #7c5cff) 65%, transparent);
+  border-radius: .75rem;
+  background: color-mix(in srgb, var(--accent, #7c5cff) 12%, transparent);
+}
+.studio-platform-status-label {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.studio-platform-status-label.is-published {
+  color: #157347;
+  background: rgba(25, 135, 84, 0.12);
+}

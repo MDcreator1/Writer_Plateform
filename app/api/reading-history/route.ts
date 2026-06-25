@@ -14,20 +14,44 @@ export async function POST(request: Request) {
   try {
     const user = await requireUser();
     const body = schema.parse(await request.json());
-    const history = await prisma.readingHistory.upsert({
+
+    // Check if the history record already exists
+    const existing = await prisma.readingHistory.findUnique({
       where: {
         userId_chapterId: {
           userId: user.id,
           chapterId: body.chapterId
         }
-      },
-      create: { userId: user.id, ...body },
-      update: {
-        progressPct: body.progressPct,
-        lastPosition: body.lastPosition,
-        lastReadAt: new Date()
       }
     });
+
+    const history = await prisma.$transaction(async (tx) => {
+      const res = await tx.readingHistory.upsert({
+        where: {
+          userId_chapterId: {
+            userId: user.id,
+            chapterId: body.chapterId
+          }
+        },
+        create: { userId: user.id, ...body },
+        update: {
+          progressPct: body.progressPct,
+          lastPosition: body.lastPosition,
+          lastReadAt: new Date()
+        }
+      });
+
+      // If this is the user's first time reading this chapter, increment story readsCount
+      if (!existing) {
+        await tx.story.update({
+          where: { id: body.storyId },
+          data: { readsCount: { increment: 1 } }
+        });
+      }
+
+      return res;
+    });
+
     return ok(history);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to save reading history", 400);

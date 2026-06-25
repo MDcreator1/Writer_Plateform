@@ -2,7 +2,8 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { sha256, signSessionToken, verifySessionToken } from "@/lib/security";
+import { sha256 } from "@/lib/security";
+import { signSessionToken, verifySessionToken } from "@/lib/jwt";
 
 export const SESSION_COOKIE = "velora_session";
 
@@ -14,7 +15,7 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-export async function createSession(user: { id: string; role: string }, requestHeaders?: Headers) {
+export async function createSession(user: { id: string; role: string; registrationStep?: number }, requestHeaders?: Headers) {
   const headerStore = requestHeaders ?? (await headers());
   const userAgent = headerStore.get("user-agent") || "unknown";
   const ip = headerStore.get("x-forwarded-for") || headerStore.get("x-real-ip") || "local";
@@ -30,9 +31,29 @@ export async function createSession(user: { id: string; role: string }, requestH
   const token = await signSessionToken({
     userId: user.id,
     role: user.role,
-    sessionId: session.id
+    sessionId: session.id,
+    registrationStep: user.registrationStep ?? 1
   });
   return { session, token };
+}
+
+export async function updateSessionStep(userId: string, step: number) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!token) return;
+  try {
+    const payload = await verifySessionToken(token);
+    if (payload.userId !== userId) return;
+    const newToken = await signSessionToken({
+      userId: payload.userId,
+      role: payload.role,
+      sessionId: payload.sessionId,
+      registrationStep: step
+    });
+    await setSessionCookie(newToken);
+  } catch (err) {
+    console.error("Failed to update session step:", err);
+  }
 }
 
 export async function setSessionCookie(token: string) {
@@ -61,6 +82,17 @@ export async function getCurrentUser() {
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
       return null;
     }
+
+    // Dynamically elevate to ADMIN if configured in .env
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "";
+    if (adminEmail && session.user.email.toLowerCase() === adminEmail && session.user.role !== "ADMIN") {
+      const updatedUser = await prisma.user.update({
+        where: { id: session.user.id },
+        data: { role: "ADMIN" }
+      });
+      return updatedUser;
+    }
+
     return session.user;
   } catch {
     return null;

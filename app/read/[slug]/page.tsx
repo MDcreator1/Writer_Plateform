@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ReaderPage } from "@/components/reader-page";
 import { getCurrentUser } from "@/lib/auth";
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: story.title,
       description: story.description,
-      images: [story.cover]
+      images: story.cover ? [story.cover] : []
     }
   };
 }
@@ -50,7 +50,7 @@ export default async function Page({ params }: PageProps) {
       initialCoinBalance={readerStory.walletBalance}
       currentUser={{
         id: user.id,
-        username: user.username,
+        username: user.username || user.displayName || "Reader",
         emailHash: hashEmail(user.email),
         sessionId: crypto.randomUUID()
       }}

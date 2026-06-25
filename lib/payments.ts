@@ -1,8 +1,10 @@
-﻿import "server-only";
+import "server-only";
 import crypto from "crypto";
 import { Prisma, PaymentProvider, PaymentStatus } from "@prisma/client";
 import Razorpay from "razorpay";
 import { prisma } from "@/lib/prisma";
+import { getActiveScheduledDiscount } from "@/lib/discount-campaigns";
+import { getMonetizationSettings } from "@/lib/monetization-service";
 
 type RazorpayOrder = {
   id: string;
@@ -96,13 +98,24 @@ export async function createRazorpayCoinOrder(input: {
     throw new Error("Coin package is not available.");
   }
 
+  // Server-side Discount Pricing Calculation
+  const settings = await getMonetizationSettings();
+  const activeScheduledDiscount = getActiveScheduledDiscount(settings);
+
+  const campaignParts = (coinPackage.campaign || "").split("|");
+  const manual = Number(campaignParts[1]) || 0;
+  const combined = Number(campaignParts[2]) || 0;
+  const scheduled = activeScheduledDiscount?.campaign.percent ?? 0;
+  const totalDiscount = manual + combined + scheduled;
+  const finalPriceCents = Math.max(0, Math.round(coinPackage.priceCents * (1 - totalDiscount / 100)));
+
   const payment = await prisma.payment.create({
     data: {
       userId: input.userId,
       coinPackageId: coinPackage.id,
       provider: PaymentProvider.RAZORPAY,
       status: PaymentStatus.CREATED,
-      amountCents: coinPackage.priceCents,
+      amountCents: finalPriceCents,
       currency: coinPackage.currency,
       coinsAdded: coinPackage.coins + coinPackage.bonusCoins
     }
@@ -110,7 +123,7 @@ export async function createRazorpayCoinOrder(input: {
 
   const razorpay = getRazorpayClient();
   const order = (await razorpay.orders.create({
-    amount: coinPackage.priceCents,
+    amount: finalPriceCents,
     currency: coinPackage.currency,
     receipt: payment.id.slice(0, 40),
     notes: {
@@ -134,14 +147,14 @@ export async function createRazorpayCoinOrder(input: {
     paymentId: payment.id,
     keyId: getPublicRazorpayKey(),
     orderId: order.id,
-    amount: coinPackage.priceCents,
+    amount: finalPriceCents,
     currency: coinPackage.currency,
     package: {
       id: coinPackage.id,
       name: coinPackage.name,
       coins: coinPackage.coins,
       bonusCoins: coinPackage.bonusCoins,
-      price: coinPackage.priceCents / 100
+      price: finalPriceCents / 100
     },
     prefill: {
       email: input.userEmail,

@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadgeCheck,
   Banknote,
   BarChart3,
@@ -48,6 +48,11 @@ export type Story = {
   tags: string[];
   chapterList: Chapter[];
   totalChapter: number;
+  storyType?: string;
+  published?: boolean;
+  publicationStatus?: string;
+  defaultChapterCoinPrice?: number;
+  freeChapterCap?: number;
 };
 
 export type CoinPackage = {
@@ -56,6 +61,7 @@ export type CoinPackage = {
   bonus: number;
   price: number;
   badge: string;
+  campaign?: string | null;
 };
 
 export const platformStats = [

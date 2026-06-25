@@ -1,0 +1,44 @@
+{
+  "maxDiscountPercent": 45,
+  "activeCampaign": "Summer Coin Sale",
+  "subCoinsPerDay": 15,
+  "weeklyBasePrice": 99,
+  "monthlyBasePrice": 450,
+  "yearlyBasePrice": 5000,
+  "monthlyUpgradeDiscount": 10,
+  "yearlyUpgradeDiscount": 15,
+  "subscriptionsEnabled": true,
+  "scheduledDiscountEnabled": false,
+  "scheduledDiscountPercent": 10,
+  "scheduledDiscountStart": "2026-06-24T10:39",
+  "scheduledDiscountEnd": "2026-06-24T11:03",
+  "scheduledDiscountTitle": "testing",
+  "scheduledDiscountDescription": "testing the feature",
+  "scheduledDiscounts": [
+    {
+      "id": "legacy-scheduled-discount",
+      "title": "testing",
+      "description": "testing the feature",
+      "percent": 10,
+      "start": "2026-06-24T10:39",
+      "end": "2026-06-24T11:03",
+      "enabled": false,
+      "createdAt": "1970-01-01T00:00:00.000Z"
+    }
+  ],
+  "recurringDiscounts": [
+    {
+      "id": "recurring-discount-1782283213965",
+      "title": "month's first day",
+      "description": "no discription",
+      "percent": 10,
+      "type": "weekly",
+      "dayOfWeek": 5,
+      "startTime": "10:00",
+      "endTime": "23:59",
+      "enabled": true,
+      "createdAt": "2026-06-24T06:40:13.965Z",
+      "updatedAt": "2026-06-24T06:41:56.758Z"
+    }
+  ]
+}

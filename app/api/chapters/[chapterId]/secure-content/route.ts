@@ -15,7 +15,7 @@ type Params = {
   params: Promise<{ chapterId: string }>;
 };
 
-export async function GET(request: Request, { params }: Params) {
+export async function GET(_request: Request, { params }: Params) {
   try {
     const user = await requireUser();
     const { chapterId } = await params;
@@ -39,7 +39,7 @@ export async function GET(request: Request, { params }: Params) {
     const fingerprint = purchase?.fingerprint ?? createFingerprint(user.id, chapterId, sessionId);
     const watermarks = buildWatermark({
       userId: user.id,
-      username: user.username,
+      username: user.username || user.displayName || "Reader",
       email: user.email,
       sessionId
     });

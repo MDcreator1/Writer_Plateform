@@ -11,22 +11,51 @@ const loginSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = loginSchema.parse(await request.json());
-    const user = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
-    if (!user || !user.passwordHash) {
-      return fail("Invalid credentials", 401, "INVALID_CREDENTIALS");
+    const email = body.email.toLowerCase();
+
+    // 1. Check if user exists
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // User not found. Prompt them to register first.
+      return fail("यह ईमेल पंजीकृत नहीं है। कृपया पहले पंजीकरण करें।", 404, "USER_NOT_FOUND");
     }
+
+    // 2. Check if user has password login enabled
+    if (!user.passwordHash) {
+      return fail("इस खाते के लिए कोई पासवर्ड सेट नहीं है। कृपया OTP या गूगल से लॉगिन करें।", 400, "NO_PASSWORD");
+    }
+
+    // 3. Verify password
     const valid = await verifyPassword(body.password, user.passwordHash);
-    if (!valid || user.status !== "ACTIVE") {
-      return fail("Invalid credentials", 401, "INVALID_CREDENTIALS");
+    if (!valid) {
+      return fail("गलत पासवर्ड। क्या आप OTP से लॉगिन करना चाहते हैं?", 401, "PASSWORD_INCORRECT");
     }
+
+    // 4. Check account status
+    if (user.status !== "ACTIVE") {
+      return fail("आपका खाता सक्रिय नहीं है। कृपया व्यवस्थापक से संपर्क करें।", 403, "ACCOUNT_INACTIVE");
+    }
+
+    // 5. Create Session & Cookie
     const { token } = await createSession(user, request.headers);
     await setSessionCookie(token);
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return ok({ user: { id: user.id, username: user.username, role: user.role } });
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    return ok({
+      user: { id: user.id, username: user.username, role: user.role },
+      nextStep: user.registrationStep
+    });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail("Enter a valid email and password", 400, "VALIDATION_ERROR");
+      return fail("कृपया एक मान्य ईमेल और पासवर्ड दर्ज करें।", 400, "VALIDATION_ERROR");
     }
-    return fail("Unable to login", 400);
+    console.error("Login route error:", error);
+    return fail("लॉगिन करने में असमर्थ। कृपया पुनः प्रयास करें।", 500);
   }
 }

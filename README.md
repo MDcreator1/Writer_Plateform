@@ -19,6 +19,13 @@ npm run prisma:generate
 npm run dev
 ```
 
+`npm run dev` starts both systems automatically:
+
+- Writer Platform: `http://localhost:3000`
+- Writing Studio: `http://localhost:5500/story-novel-project-editor.html`
+
+Writing Studio still runs as a separate local server and is not embedded in the Next.js website. `npm start` uses the same hybrid launcher for production builds.
+
 For a real database:
 
 ```bash

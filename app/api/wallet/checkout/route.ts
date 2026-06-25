@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 import { fail, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { createRazorpayCoinOrder } from "@/lib/payments";
@@ -11,11 +11,17 @@ const checkoutSchema = z.object({
 export async function POST(request: Request) {
   try {
     const user = await requireUser();
+
+    // Guard: Ensure mobile number is verified for coin purchases
+    if (!user.phone || (!user.phoneVerifiedAt && !user.phoneVerified)) {
+      return fail("Coins purchasing के लिए mobile number verification जरूरी है।", 403, "MOBILE_UNVERIFIED");
+    }
+
     const body = checkoutSchema.parse(await request.json());
     const checkout = await createRazorpayCoinOrder({
       userId: user.id,
       userEmail: user.email,
-      username: user.displayName || user.username,
+      username: user.displayName || user.username || "User",
       coinPackageId: body.coinPackageId
     });
 

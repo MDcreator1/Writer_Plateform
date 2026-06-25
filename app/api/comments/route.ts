@@ -10,6 +10,47 @@ const schema = z.object({
   body: z.string().min(2).max(2000)
 });
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const storyId = searchParams.get("storyId");
+    const chapterId = searchParams.get("chapterId");
+
+    if (!storyId) {
+      return fail("storyId is required.", 400);
+    }
+
+    const where: any = {
+      storyId,
+      hidden: false
+    };
+
+    if (chapterId) {
+      where.chapterId = chapterId;
+    } else {
+      where.chapterId = null;
+    }
+
+    const comments = await prisma.comment.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return ok(comments);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Unable to load comments", 400);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const user = await requireUser();

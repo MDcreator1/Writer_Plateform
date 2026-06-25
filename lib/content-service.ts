@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import type { Chapter as DbChapter, CoinPackage as DbCoinPackage, Story as DbStory } from "@prisma/client";
 import { coinPackages as fallbackPackages, stories as fallbackStories, type CoinPackage, type Story } from "@/lib/content";
 import { prisma } from "@/lib/prisma";
@@ -44,18 +44,23 @@ export function mapDbStoryToCard(story: StoryWithChapters, unlockedChapterIds = 
     slug: story.slug,
     title: story.title,
     genre: story.genre,
-    rating: Number(story.ratingAverage || 0) || 4.8,
+    rating: Number(story.ratingAverage || 0),
     reads: formatReads(story.readsCount),
     chapters: totalChapters,
     freeChapters,
     paidChapters,
     description: story.description,
     author: story.authorName,
-    cover: story.coverUrl || fallbackStories[0]?.cover || "",
+    cover: story.coverUrl || "",
     accent: "from-accent to-accent2",
     tags: story.tags.length ? story.tags : [story.genre, story.storyType, story.language].filter(Boolean),
     chapterList,
-    totalChapter: totalChapters
+    totalChapter: totalChapters,
+    storyType: story.storyType || "novel",
+    published: story.published,
+    publicationStatus: story.publicationStatus,
+    defaultChapterCoinPrice: story.defaultChapterCoinPrice,
+    freeChapterCap: story.freeChapterCap
   };
 }
 
@@ -65,7 +70,8 @@ export function mapDbCoinPackage(pack: DbCoinPackage): CoinPackage {
     coins: pack.coins,
     bonus: pack.bonusCoins,
     price: pack.priceCents / 100,
-    badge: pack.name
+    badge: pack.name,
+    campaign: pack.campaign
   };
 }
 

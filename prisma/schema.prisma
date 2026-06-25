@@ -10,13 +10,23 @@ datasource db {
 model User {
   id                 String               @id @default(cuid())
   email              String               @unique
-  username           String               @unique
+  username           String?              @unique
   displayName        String?
   passwordHash       String?
   role               UserRole             @default(READER)
   status             AccountStatus        @default(ACTIVE)
+  emailVerified      Boolean              @default(false)
   emailVerifiedAt    DateTime?
   lastLoginAt        DateTime?
+  age                Int?
+  gender             String?
+  profileImage       String?
+  image              String?
+  avatarLetter       String?
+  phone              String?
+  phoneVerified      Boolean              @default(false)
+  phoneVerifiedAt    DateTime?
+  registrationStep   Int                  @default(1)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   adminLogs          AdminLog[]
@@ -35,6 +45,8 @@ model User {
   unlockEvents       UnlockEvent[]
   verificationTokens VerificationToken[]
   wallet             Wallet?
+  phoneVerifications PhoneVerification[]
+  commentReports     CommentReport[]
 }
 
 model AuthAccount {
@@ -99,34 +111,45 @@ model Device {
 }
 
 model Story {
-  id             String           @id @default(cuid())
-  slug           String           @unique
-  title          String
-  genre          String
-  description    String
-  authorName     String
-  coverUrl       String?
-  ratingAverage  Float            @default(0)
-  readsCount     Int              @default(0)
-  freeChapterCap Int              @default(10)
-  published      Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  language       String           @default("english")
-  storyType      String           @default("novel")
-  leadingGender  String?
-  tagCategory    String?
-  tags           String[]         @default([])
-  abbreviation   String?
-  storyLength    String?
-  writingContest String?
-  warningNotice  String?
-  invitationCode String?
-  bookmarks      Bookmark[]
-  chapters       Chapter[]
-  comments       Comment[]
-  ratings        Rating[]
-  readingHistory ReadingHistory[]
+  id                      String             @id @default(cuid())
+  slug                    String             @unique
+  title                   String
+  genre                   String
+  genres                  String[]           @default([])
+  description             String
+  authorName              String
+  coverUrl                String?
+  seoTitle                String?
+  seoDescription          String?
+  priceCents              Int                @default(0)
+  defaultChapterCoinPrice Int                @default(0)
+  visibility              StoryVisibility    @default(PRIVATE)
+  publicationStatus       PublicationStatus  @default(DRAFT)
+  metadataVersion         Int                @default(1)
+  origin                  StoryOrigin        @default(PLATFORM)
+  ratingAverage           Float              @default(0)
+  readsCount              Int                @default(0)
+  freeChapterCap          Int                @default(10)
+  published               Boolean            @default(false)
+  scheduledAt             DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  language                String             @default("english")
+  storyType               String             @default("novel")
+  leadingGender           String?
+  tagCategory             String?
+  tags                    String[]           @default([])
+  abbreviation            String?
+  storyLength             String?
+  writingContest          String?
+  warningNotice           String?
+  invitationCode          String?
+  bookmarks               Bookmark[]
+  chapters                Chapter[]
+  comments                Comment[]
+  ratings                 Rating[]
+  readingHistory          ReadingHistory[]
+  studioProject           StudioProjectLink?
 }
 
 model Chapter {
@@ -141,6 +164,7 @@ model Chapter {
   contentNonce     String
   contentAuthTag   String
   excerpt          String?
+  studioDocumentId String?
   publishedAt      DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -154,7 +178,62 @@ model Chapter {
   unlockEvents     UnlockEvent[]
 
   @@unique([storyId, number])
+  @@unique([storyId, studioDocumentId])
   @@index([storyId, status])
+}
+
+model StudioProjectLink {
+  id                      String                @id @default(cuid())
+  projectId               String                @unique
+  storyId                 String                @unique
+  projectTitle            String
+  source                  StudioProjectSource
+  workspaceFormatVersion  Int                   @default(1)
+  workspaceMaterializedAt DateTime?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  story                   Story                 @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  folders                 StudioProjectFolder[]
+  files                   StudioProjectFile[]
+}
+
+model StudioProjectFolder {
+  id              String              @id @default(cuid())
+  studioProjectId String
+  path            String
+  name            String
+  kind            StudioFolderKind
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  studioProject   StudioProjectLink   @relation(fields: [studioProjectId], references: [id], onDelete: Cascade)
+  files           StudioProjectFile[]
+
+  @@unique([studioProjectId, path])
+  @@index([studioProjectId, kind])
+}
+
+model StudioProjectFile {
+  id               String                     @id @default(cuid())
+  studioProjectId  String
+  folderId         String?
+  path             String
+  name             String
+  kind             StudioFileKind
+  format           StudioFileFormat
+  publicationState StudioFilePublicationState @default(AUTHORING_ONLY)
+  jsonContent      Json?
+  encryptedContent String?
+  contentNonce     String?
+  contentAuthTag   String?
+  contentHash      String
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  studioProject    StudioProjectLink          @relation(fields: [studioProjectId], references: [id], onDelete: Cascade)
+  folder           StudioProjectFolder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@unique([studioProjectId, path])
+  @@index([studioProjectId, kind])
+  @@index([studioProjectId, publicationState])
 }
 
 model Wallet {
@@ -217,23 +296,23 @@ model Payment {
   coinPackage       CoinPackage?    @relation(fields: [coinPackageId], references: [id])
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([provider, providerOrderId])
+  @@unique([provider, providerPaymentId])
   @@index([userId, status])
   @@index([provider, providerOrderId])
   @@index([provider, providerPaymentId])
-  @@unique([provider, providerOrderId])
-  @@unique([provider, providerPaymentId])
 }
 
 model PaymentWebhookEvent {
-  id          String          @id @default(cuid())
-  provider    PaymentProvider
-  eventId     String          @unique
-  eventType   String
-  orderId     String?
-  paymentId   String?
-  processed   Boolean         @default(false)
-  rawPayload  Json
-  createdAt   DateTime        @default(now())
+  id         String          @id @default(cuid())
+  provider   PaymentProvider
+  eventId    String          @unique
+  eventType  String
+  orderId    String?
+  paymentId  String?
+  processed  Boolean         @default(false)
+  rawPayload Json
+  createdAt  DateTime        @default(now())
 
   @@index([provider, eventType])
   @@index([orderId])
@@ -266,6 +345,7 @@ model Comment {
   chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports   CommentReport[]
 
   @@index([storyId, chapterId])
 }
@@ -395,7 +475,64 @@ enum AccountStatus {
 enum ChapterStatus {
   DRAFT
   PUBLISHED
+  TRASH
+}
+
+enum StoryVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum PublicationStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
   ARCHIVED
+}
+
+enum StoryOrigin {
+  PLATFORM
+  STUDIO
+}
+
+enum StudioProjectSource {
+  PLATFORM
+  STUDIO
+}
+
+enum StudioFolderKind {
+  CHAPTERS
+  DRAFTS
+  TRASH
+  EDITED_CHAPTER
+  CUSTOM
+}
+
+enum StudioFileKind {
+  MANIFEST
+  NAMING_BOARD
+  DRAFT_INDEX
+  TRASH_DRAFT_INDEX
+  CHAPTER_REVISION_INDEX
+  CHAPTER_CONTENT
+  DRAFT_CONTENT
+  TRASH_DRAFT_CONTENT
+  CHAPTER_REVISION_CONTENT
+  OTHER_JSON
+  OTHER_TEXT
+}
+
+enum StudioFileFormat {
+  JSON
+  TEXT
+}
+
+enum StudioFilePublicationState {
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+  AUTHORING_ONLY
 }
 
 enum TransactionType {
@@ -425,4 +562,85 @@ enum SuspiciousSeverity {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+model PhoneVerification {
+  id          String    @id @default(cuid())
+  phoneNumber String
+  codeHash    String
+  attempts    Int       @default(0)
+  verified    Boolean   @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phoneNumber])
+}
+
+model EmailQueue {
+  id        String    @id @default(cuid())
+  email     String
+  subject   String
+  body      String
+  status    String    @default("PENDING") // PENDING, SENT, FAILED
+  attempts  Int       @default(0)
+  error     String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
+model CommentReport {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  reason    String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@index([userId])
+}
+
+model Otp {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  type       String    // REGISTRATION, LOGIN
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, type])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model WriterNote {
+  id        String   @id @default(cuid())
+  content   String
+  twitter   String?
+  instagram String?
+  facebook  String?
+  youtube   String?
+  linkedin  String?
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model PageLayout {
+  id         String   @id @default(cuid())
+  pageName   String   @unique
+  layoutName String
+  updatedAt  DateTime @default(now()) @updatedAt
 }
