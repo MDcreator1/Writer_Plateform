@@ -5,7 +5,7 @@ export const metadata = {
   name: "Classic 2D Layout",
   description: "Standard premium 2D dark glassmorphism layout with grids and smooth gradients."
 };
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   BookOpen,
@@ -23,7 +23,10 @@ import {
   Instagram,
   Facebook,
   Youtube,
-  Linkedin
+  Linkedin,
+  Coins,
+  ShieldCheck,
+  X
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -894,6 +897,7 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
   const monthlyUpgradeDiscount = settings.monthlyUpgradeDiscount ?? 5;
   const yearlyUpgradeDiscount = settings.yearlyUpgradeDiscount ?? 25;
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(new Date());
   const [rating, setRating] = useState<number>(4);
@@ -1318,80 +1322,83 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
           ) : null}
           <div className="home-header-actions flex items-center gap-3">
             <div className={isGuest ? "block" : "hidden md:block"}>
-              <ThemeSwitcher compact />
+              <ThemeSwitcher compact variant="classic" />
             </div>
             {isGuest ? (
-              <>
+              <div className="hidden lg:flex items-center gap-3">
                 <Link href="/auth" className="lm-btn-secondary home-action-login py-2">
                   Login
                 </Link>
                 <Link href="/auth?mode=register" className="lm-btn-accent2 home-action-register py-2">
                   Register
                 </Link>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="home-profile-menu relative" ref={profileMenuRef}>
-                  <button
-                    type="button"
-                    className="home-profile-trigger inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface-raised text-sm font-semibold text-on-accent shadow-soft transition hover:border-accent hover:shadow-glow"
-                    aria-expanded={profileOpen}
-                    aria-haspopup="menu"
-                    aria-label="Open profile menu"
-                    onClick={() => setProfileOpen((value) => !value)}
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3">
-                      {profileInitial}
-                    </span>
-                  </button>
-                  {profileOpen ? (
-                    <div
-                      className="home-profile-panel absolute right-0 top-[calc(100%+0.75rem)] z-50 w-72 rounded-xl border border-border bg-surface-raised p-4 text-left shadow-soft backdrop-blur-xl"
-                      role="menu"
-                    >
-                      <div className="flex items-center gap-3 border-b border-border pb-4">
-                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3 text-base font-semibold text-on-accent">
-                          {profileInitial}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-ink">{profileName}</p>
-                          <p className="truncate text-sm text-muted">{currentUser?.email}</p>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 py-4 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted">Username</span>
-                          <span className="truncate font-semibold text-ink">{currentUser?.username}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted">Role</span>
-                          <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold uppercase text-accent2">
-                            {currentUser?.role}
-                          </span>
-                        </div>
-                      </div>
-                      <Link href="/dashboard" className="lm-btn-secondary mb-3 w-full py-2" role="menuitem">
-                        <UserCircle className="h-4 w-4" />
-                        View Dashboard
-                      </Link>
-                      <button
-                        type="button"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-semibold text-danger transition hover:border-danger/50 hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={isLoggingOut}
-                        onClick={handleLogout}
-                        role="menuitem"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        {isLoggingOut ? "Logging out..." : "Logout"}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <button className="home-action-mobile-menu rounded-lg border border-border bg-surface p-2 lg:hidden" aria-label="Open menu">
-                  <Menu className="h-5 w-5 text-ink" />
+              <div className="home-profile-menu relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((value) => !value)}
+                  className="home-profile-trigger inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface-raised text-sm font-semibold text-on-accent shadow-soft transition hover:border-accent hover:shadow-glow"
+                  aria-expanded={profileOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open profile menu"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3">
+                    {profileInitial}
+                  </span>
                 </button>
-              </>
+                {profileOpen ? (
+                  <div
+                    className="home-profile-panel absolute right-0 top-[calc(100%+0.75rem)] z-50 w-72 rounded-xl border border-border bg-surface-raised p-4 text-left shadow-soft backdrop-blur-xl"
+                    role="menu"
+                  >
+                    <div className="flex items-center gap-3 border-b border-border pb-4">
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3 text-base font-semibold text-on-accent">
+                        {profileInitial}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-ink">{profileName}</p>
+                        <p className="truncate text-sm text-muted">{currentUser?.email}</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 py-4 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted">Username</span>
+                        <span className="truncate font-semibold text-ink">{currentUser?.username}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted">Role</span>
+                        <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold uppercase text-accent2">
+                          {currentUser?.role}
+                        </span>
+                      </div>
+                    </div>
+                    <Link href="/dashboard" className="lm-btn-secondary mb-3 w-full py-2" role="menuitem">
+                      <UserCircle className="h-4 w-4" />
+                      View Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-semibold text-danger transition hover:border-danger/50 hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isLoggingOut}
+                      onClick={handleLogout}
+                      role="menuitem"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {isLoggingOut ? "Logging out..." : "Logout"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             )}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="home-action-mobile-menu rounded-lg border border-border bg-surface p-2 lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5 text-ink" />
+            </button>
           </div>
         </nav>
       </header>
@@ -1801,8 +1808,8 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                         disabled={!!checkoutPackageId}
                         aria-busy={checkoutPackageId === pack.id}
                         className={`coin-package-row group relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-xl border px-5 py-4 text-left backdrop-blur transition-all duration-300 disabled:cursor-wait ${totalDiscount > 0
-                            ? "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
-                            : "border-border/30 bg-surface/10 hover:bg-surface/20"
+                          ? "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
+                          : "border-border/30 bg-surface/10 hover:bg-surface/20"
                           }`}
                       >
                         {/* hover glow */}
@@ -1900,10 +1907,10 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                   </div>
 
                   <div className={`relative overflow-hidden rounded-xl border p-5 backdrop-blur transition-all duration-300 ${isCampaignLive
-                      ? "border-emerald-500/20 bg-emerald-500/5 shadow-md shadow-emerald-500/5"
-                      : isCampaignUpcoming
-                        ? "border-amber-500/20 bg-amber-500/5"
-                        : "border-border/30 bg-surface/10"
+                    ? "border-emerald-500/20 bg-emerald-500/5 shadow-md shadow-emerald-500/5"
+                    : isCampaignUpcoming
+                      ? "border-amber-500/20 bg-amber-500/5"
+                      : "border-border/30 bg-surface/10"
                     }`}
                   >
                     {isCampaignLive && (
@@ -1951,8 +1958,8 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                             {displayCampaign?.title || `${displayCampaign?.percent ?? 0}% Surprise Discount!`}
                           </span>
                           <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 shrink-0 ${isCampaignLive
-                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                              : "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/15 text-amber-400 border border-amber-500/20"
                             }`}>
                             <Clock className="h-3 w-3 shrink-0" />
                             {getCampaignTimeLabel()}
@@ -2041,7 +2048,7 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                   className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
                 >
                   {adminModules.map((item) => (
-                    <div className="admin-module-card lm-card p-6 transition-all duration-300"
+                    <div key={item.label} className="admin-module-card lm-card p-6 transition-all duration-300"
                     >
                       <item.icon className="h-6 w-6 text-accent2" />
                       <h3 className="mt-4 font-semibold text-ink">{item.label}</h3>
@@ -2190,15 +2197,15 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                   {/* Feedback form */}
                   <form onSubmit={handleFeedbackSubmit} className="feedback-card lm-card p-6">
                     <h3 className="font-display text-xl font-semibold text-ink">Reader Feedback</h3>
-                    <div className="mt-1 grid gap-3 md:grid-cols-[1fr_auto]">
+                    <div className="mt-1 grid md:grid-cols-[1fr_auto]">
                       <input
-                        className="input-underline ml-2 pl-2"
+                        className="input-underline mx-2 px-2"
                         placeholder="Your name"
                         value={feedbackName}
                         onChange={(e) => setFeedbackName(e.target.value)}
                         required
                       />
-                      <div className="flex flex-col gap-1 justify-center justify-self-end mr-4">
+                      <div className="flex flex-col gap-1 justify-center justify-self-end mx-4">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-soft">Rating (Min 3 stars)</span>
                         <div className="flex items-center gap-1 mt-0.5">
                           {Array.from({ length: 5 }).map((_, idx) => {
@@ -2220,8 +2227,8 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                               >
                                 <svg
                                   className={`h-6 w-6 cursor-pointer ${isFilled
-                                      ? "fill-warning text-warning"
-                                      : "fill-none text-muted-soft"
+                                    ? "fill-warning text-warning"
+                                    : "fill-none text-muted-soft"
                                     }`}
                                   xmlns="http://www.w3.org/2000/svg"
                                   viewBox="0 0 24 24"
@@ -2355,6 +2362,144 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
           </div>
         </div>
       </motion.footer>
+      {/* ─────────────── MOBILE DRAWER MENU ─────────────── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-[10000] lg:hidden">
+            {/* Backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            {/* Sliding Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 right-0 top-0 w-full max-w-[280px] bg-surface border-l border-border/80 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto"
+            >
+              <div className="space-y-6">
+                {/* Header of Drawer */}
+                <div className="flex items-center justify-between pb-4 border-b border-border">
+                  <span className="font-display text-lg font-bold text-ink">Menu</span>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1.5 hover:bg-surface-soft rounded-lg text-muted hover:text-ink transition"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Theme Switcher section on mobile drawer */}
+                <div className="flex items-center justify-between rounded-lg bg-surface-soft/60 p-3">
+                  <span className="text-xs font-bold text-muted uppercase tracking-wider">Appearance</span>
+                  <ThemeSwitcher compact variant="classic" />
+                </div>
+
+                {/* Nav Links inside mobile drawer */}
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="#stories"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
+                  >
+                    <BookOpen className="h-4 w-4 text-accent" />
+                    Stories
+                  </a>
+                  <a
+                    href="#coins"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
+                  >
+                    <Coins className="h-4 w-4 text-warning" />
+                    Coins
+                  </a>
+                  {isAdmin && (
+                    <>
+                      <a
+                        href="#protection"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
+                      >
+                        <ShieldCheck className="h-4 w-4 text-success" />
+                        Protection
+                      </a>
+                      <Link
+                        href="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
+                      >
+                        <Sparkles className="h-4 w-4 text-accent2" />
+                        Admin
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Profile / Account section at bottom of Drawer */}
+              <div className="pt-6 border-t border-border mt-auto">
+                {isGuest ? (
+                  <div className="grid gap-2">
+                    <Link
+                      href="/auth"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="lm-btn-secondary w-full py-2.5 text-center text-xs font-bold uppercase tracking-wider"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/auth?mode=register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="lm-btn-accent2 w-full py-2.5 text-center text-xs font-bold uppercase tracking-wider"
+                    >
+                      Register
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3 text-sm font-bold text-on-accent">
+                        {profileInitial}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-ink">{profileName}</p>
+                        <p className="truncate text-[10px] text-muted">{currentUser?.email}</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="lm-btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <UserCircle className="h-4 w-4" />
+                        Dashboard
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          handleLogout();
+                        }}
+                        disabled={isLoggingOut}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger transition hover:bg-danger/15 disabled:opacity-60"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        {isLoggingOut ? "Ending..." : "Logout"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

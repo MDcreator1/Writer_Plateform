@@ -9,6 +9,7 @@ import {
   CreditCard,
   Plus,
   RotateCcw,
+  Save,
   Search,
   ShieldCheck,
   Users,
@@ -134,7 +135,26 @@ type AdminPageProps = {
   };
 };
 
-const DEFAULT_WRITING_STUDIO_URL = "http://localhost:5500/story-novel-project-editor.html";
+type FeedbackPanelView = "writer" | "reader";
+type WriterSocialLinkKey = "twitter" | "instagram" | "facebook" | "youtube" | "linkedin";
+type WriterNoteFieldPatch = Partial<Record<WriterSocialLinkKey, string | null>> & { content?: string };
+type WriterNoteRecord = WriterNoteFieldPatch & {
+  id?: string;
+  updatedAt?: string;
+};
+
+const WRITER_SOCIAL_LINK_FIELDS: Array<{
+  key: WriterSocialLinkKey;
+  label: string;
+  placeholder: string;
+}> = [
+  { key: "twitter", label: "Twitter / X", placeholder: "https://twitter.com/username" },
+  { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/username" },
+  { key: "facebook", label: "Facebook", placeholder: "https://facebook.com/username" },
+  { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/c/channelname" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username" }
+];
+const DEFAULT_WRITING_STUDIO_URL = "/admin/studio";
 const DEFAULT_SCHEDULE_DURATION_MINUTES = 24 * 60;
 const SCHEDULE_NOW_TOLERANCE_MS = 60 * 1000;
 const DISCOUNT_PERIOD_PRESETS = [
@@ -177,9 +197,10 @@ function buildStudioUrl(
   input: { storyId?: string; storyTitle?: string; projectId?: string }
 ) {
   try {
-    const url = new URL(studioBaseUrl || DEFAULT_WRITING_STUDIO_URL);
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const url = new URL(studioBaseUrl || DEFAULT_WRITING_STUDIO_URL, base);
     url.searchParams.set("platformAction", input.storyId ? "manage-chapters" : "open-studio");
-    url.searchParams.set("platformUrl", platformUrl || "http://localhost:3000");
+    url.searchParams.set("platformUrl", platformUrl || base);
     if (input.storyId) url.searchParams.set("platformStoryId", input.storyId);
     if (input.storyTitle) url.searchParams.set("platformStoryTitle", input.storyTitle);
     if (input.projectId) url.searchParams.set("platformProjectId", input.projectId);
@@ -229,6 +250,7 @@ export function AdminPage({ data }: AdminPageProps) {
 
   // --- Moderation & Queues States (Phase 6) ---
   const [modSubTab, setModSubTab] = useState<"comments" | "emails" | "phone" | "feedback">("comments");
+  const [feedbackPanelView, setFeedbackPanelView] = useState<FeedbackPanelView>("writer");
 
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -253,6 +275,7 @@ export function AdminPage({ data }: AdminPageProps) {
   const [writerYoutube, setWriterYoutube] = useState("");
   const [writerLinkedin, setWriterLinkedin] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [savingSocialLink, setSavingSocialLink] = useState<WriterSocialLinkKey | null>(null);
 
   // --- Security & Audits States (Phase 7) ---
   const [securityActivities, setSecurityActivities] = useState<any[]>([]);
@@ -1197,54 +1220,91 @@ export function AdminPage({ data }: AdminPageProps) {
     }
   };
 
+  const applyWriterNoteState = (note: WriterNoteRecord) => {
+    setWriterNote(note.content || "");
+    setWriterTwitter(note.twitter || "");
+    setWriterInstagram(note.instagram || "");
+    setWriterFacebook(note.facebook || "");
+    setWriterYoutube(note.youtube || "");
+    setWriterLinkedin(note.linkedin || "");
+  };
+
+  const getWriterSocialLink = (key: WriterSocialLinkKey) => {
+    if (key === "twitter") return writerTwitter;
+    if (key === "instagram") return writerInstagram;
+    if (key === "facebook") return writerFacebook;
+    if (key === "youtube") return writerYoutube;
+    return writerLinkedin;
+  };
+
+  const setWriterSocialLink = (key: WriterSocialLinkKey, value: string) => {
+    if (key === "twitter") setWriterTwitter(value);
+    else if (key === "instagram") setWriterInstagram(value);
+    else if (key === "facebook") setWriterFacebook(value);
+    else if (key === "youtube") setWriterYoutube(value);
+    else setWriterLinkedin(value);
+  };
+
   // Fetch active writer note
   const fetchWriterNote = async () => {
     try {
       const res = await fetch(`/api/admin/writer-note`);
       const body = await res.json();
       if (res.ok && body.data) {
-        setWriterNote(body.data.content || "");
-        setWriterTwitter(body.data.twitter || "");
-        setWriterInstagram(body.data.instagram || "");
-        setWriterFacebook(body.data.facebook || "");
-        setWriterYoutube(body.data.youtube || "");
-        setWriterLinkedin(body.data.linkedin || "");
+        applyWriterNoteState(body.data);
       }
     } catch (err) {
       console.error("Error fetching writer note", err);
     }
   };
 
-  // Save writer note
+  const saveWriterNoteFields = async (payload: WriterNoteFieldPatch, successMessage: string) => {
+    const res = await fetch(`/api/admin/writer-note`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json();
+
+    if (!res.ok) {
+      throw new Error(body.error?.message || "Failed to save writer note");
+    }
+
+    if (body.data) {
+      applyWriterNoteState(body.data);
+    }
+    showToast(successMessage, "success");
+  };
+
+  // Save writer note content without touching social links
   const handleSaveWriterNote = async () => {
     if (!writerNote.trim()) {
       showToast("Note content cannot be empty", "error");
       return;
     }
+
     setIsSavingNote(true);
     try {
-      const res = await fetch(`/api/admin/writer-note`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: writerNote,
-          twitter: writerTwitter || null,
-          instagram: writerInstagram || null,
-          facebook: writerFacebook || null,
-          youtube: writerYoutube || null,
-          linkedin: writerLinkedin || null
-        })
-      });
-      const body = await res.json();
-      if (res.ok) {
-        showToast("Writer's note updated successfully!", "success");
-      } else {
-        showToast(body.error?.message || "Failed to save writer's note", "error");
-      }
+      await saveWriterNoteFields({ content: writerNote }, "Writer note saved successfully.");
     } catch (err) {
-      showToast("Error saving writer's note", "error");
+      showToast(err instanceof Error ? err.message : "Error saving writer note", "error");
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const handleSaveSocialLink = async (key: WriterSocialLinkKey) => {
+    const field = WRITER_SOCIAL_LINK_FIELDS.find((item) => item.key === key);
+    const payload: WriterNoteFieldPatch = {};
+    payload[key] = getWriterSocialLink(key).trim() || null;
+
+    setSavingSocialLink(key);
+    try {
+      await saveWriterNoteFields(payload, `${field?.label || "Social"} link saved successfully.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : `Error saving ${field?.label || "social"} link`, "error");
+    } finally {
+      setSavingSocialLink(null);
     }
   };
 
@@ -1354,7 +1414,7 @@ export function AdminPage({ data }: AdminPageProps) {
   const unpublishedStories = data.stories.filter((s) => s.published === false);
   const studioProjectsSimple = data.studioProjects;
 
-  const studioBaseUrl = process.env.NEXT_PUBLIC_WRITING_STUDIO_URL?.trim() || DEFAULT_WRITING_STUDIO_URL;
+  const studioBaseUrl = "/admin/studio";
   const platformUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
 
   // --- SVG Custom Charts Computation ---
@@ -2665,101 +2725,99 @@ export function AdminPage({ data }: AdminPageProps) {
                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-surface border border-border p-6 rounded-xl relative z-20">
                       <div>
                         <h2 className="font-display text-2xl font-semibold text-ink">Reader Feedback & Notes</h2>
-                        <p className="text-sm text-muted">Manage the dynamic Writer's Note on the home page and view rating feedback submitted by users.</p>
+                        <p className="text-sm text-muted">Manage the dynamic Writer Note on the home page and view rating feedback submitted by users.</p>
                       </div>
                       <button onClick={() => { fetchFeedbacks(); fetchWriterNote(); }} className="lm-btn-secondary py-2 px-3 text-sm inline-flex items-center gap-1.5">
                         <RefreshCw className="h-3.5 w-3.5" /> Refresh Data
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* Left: Writer Note Card */}
-                      <div className="lg:col-span-1 lm-card bg-surface p-6 border border-border rounded-xl flex flex-col justify-between h-fit gap-4">
-                        <div>
-                          <h3 className="font-display text-lg font-semibold text-ink mb-2">Update Writer's Note</h3>
-                          <p className="text-xs text-muted mb-4">This note displays dynamically in the left contact column on the home page. You can write details about your current work, contact info, or a general quote.</p>
-                          <textarea
-                            value={writerNote}
-                            onChange={(e) => setWriterNote(e.target.value)}
-                            placeholder="Write your custom note here... Use line breaks for formatting."
-                            maxLength={1000}
-                            rows={8}
-                            className="w-full p-3 rounded-lg border border-border bg-paper text-ink text-sm focus:outline-none focus:border-accent resize-none leading-relaxed"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs text-muted">
-                            <span>Spacing and line breaks are preserved</span>
-                            <span className={writerNote.length >= 900 ? "text-danger font-bold" : ""}>
-                              {writerNote.length}/1000 chars
-                            </span>
-                          </div>
+                    <div className="flex w-full flex-col gap-2 rounded-xl border border-border bg-surface p-1 sm:w-fit sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackPanelView("writer")}
+                        aria-pressed={feedbackPanelView === "writer"}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${feedbackPanelView === "writer" ? "bg-accent text-white shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
+                      >
+                        <FileText className="h-4 w-4" /> Writer Feedback
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackPanelView("reader")}
+                        aria-pressed={feedbackPanelView === "reader"}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${feedbackPanelView === "reader" ? "bg-accent text-white shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
+                      >
+                        <MessageSquare className="h-4 w-4" /> Reader Feedback
+                      </button>
+                    </div>
 
-                          <div className="mt-4 space-y-3">
-                            <h4 className="font-display text-sm font-semibold text-ink border-t border-border pt-3">Social Media Accounts</h4>
-                            <div className="space-y-2">
-                              <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1">Twitter / X Link</label>
-                                <input
-                                  type="url"
-                                  value={writerTwitter}
-                                  onChange={(e) => setWriterTwitter(e.target.value)}
-                                  placeholder="https://twitter.com/username"
-                                  className="w-full p-2 rounded-lg border border-border bg-paper text-ink text-xs focus:outline-none focus:border-accent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1">Instagram Link</label>
-                                <input
-                                  type="url"
-                                  value={writerInstagram}
-                                  onChange={(e) => setWriterInstagram(e.target.value)}
-                                  placeholder="https://instagram.com/username"
-                                  className="w-full p-2 rounded-lg border border-border bg-paper text-ink text-xs focus:outline-none focus:border-accent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1">Facebook Link</label>
-                                <input
-                                  type="url"
-                                  value={writerFacebook}
-                                  onChange={(e) => setWriterFacebook(e.target.value)}
-                                  placeholder="https://facebook.com/username"
-                                  className="w-full p-2 rounded-lg border border-border bg-paper text-ink text-xs focus:outline-none focus:border-accent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1">YouTube Link</label>
-                                <input
-                                  type="url"
-                                  value={writerYoutube}
-                                  onChange={(e) => setWriterYoutube(e.target.value)}
-                                  placeholder="https://youtube.com/c/channelname"
-                                  className="w-full p-2 rounded-lg border border-border bg-paper text-ink text-xs focus:outline-none focus:border-accent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] uppercase font-bold text-muted mb-1">LinkedIn Link</label>
-                                <input
-                                  type="url"
-                                  value={writerLinkedin}
-                                  onChange={(e) => setWriterLinkedin(e.target.value)}
-                                  placeholder="https://linkedin.com/in/username"
-                                  className="w-full p-2 rounded-lg border border-border bg-paper text-ink text-xs focus:outline-none focus:border-accent"
-                                />
-                              </div>
+                    {feedbackPanelView === "writer" && (
+                      <div className="lm-card bg-surface p-6 border border-border rounded-xl animate-in fade-in space-y-6">
+                        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                          <section className="space-y-4">
+                            <div>
+                              <h3 className="font-display text-lg font-semibold text-ink">Writer Notes</h3>
+                              <p className="text-xs text-muted">Home page contact column note.</p>
                             </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleSaveWriterNote}
-                          disabled={isSavingNote}
-                          className="w-full lm-btn-primary py-2 px-4 text-sm font-semibold rounded-lg flex items-center justify-center gap-1.5"
-                        >
-                          {isSavingNote ? "Saving Note..." : "Save Note"}
-                        </button>
-                      </div>
+                            <textarea
+                              value={writerNote}
+                              onChange={(e) => setWriterNote(e.target.value)}
+                              placeholder="Write your custom note here..."
+                              maxLength={1000}
+                              rows={10}
+                              className="w-full p-3 rounded-lg border border-border bg-paper text-ink text-sm focus:outline-none focus:border-accent resize-none leading-relaxed"
+                            />
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <span className={writerNote.length >= 900 ? "text-danger font-bold text-xs" : "text-xs text-muted"}>
+                                {writerNote.length}/1000 chars
+                              </span>
+                              <button
+                                type="button"
+                                onClick={handleSaveWriterNote}
+                                disabled={isSavingNote}
+                                className="lm-btn-primary py-2 px-4 text-sm font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+                              >
+                                <Save className="h-3.5 w-3.5" /> {isSavingNote ? "Saving..." : "Save Writer Note"}
+                              </button>
+                            </div>
+                          </section>
 
-                      {/* Right: Feedback Log Table */}
-                      <div className="lg:col-span-2 lm-card bg-surface p-6 border border-border rounded-xl">
+                          <section className="space-y-4">
+                            <div>
+                              <h3 className="font-display text-lg font-semibold text-ink">Social Media Account Links</h3>
+                              <p className="text-xs text-muted">Each account is saved separately.</p>
+                            </div>
+                            <div className="space-y-3">
+                              {WRITER_SOCIAL_LINK_FIELDS.map((field) => (
+                                <div key={field.key} className="grid gap-2 rounded-lg border border-border bg-paper/60 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                                  <label className="space-y-1.5">
+                                    <span className="block text-[10px] uppercase font-bold tracking-wider text-muted">{field.label} Link</span>
+                                    <input
+                                      type="url"
+                                      value={getWriterSocialLink(field.key)}
+                                      onChange={(e) => setWriterSocialLink(field.key, e.target.value)}
+                                      placeholder={field.placeholder}
+                                      className="w-full p-2 rounded-lg border border-border bg-surface text-ink text-xs focus:outline-none focus:border-accent"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSocialLink(field.key)}
+                                    disabled={savingSocialLink === field.key}
+                                    className="lm-btn-secondary h-9 px-3 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 disabled:opacity-60 md:w-28"
+                                  >
+                                    <Link2 className="h-3.5 w-3.5" /> {savingSocialLink === field.key ? "Saving..." : "Save Link"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        </div>
+                      </div>
+                    )}
+
+                    {feedbackPanelView === "reader" && (
+                      <div className="lm-card bg-surface p-6 border border-border rounded-xl animate-in fade-in">
                         <h3 className="font-display text-lg font-semibold text-ink mb-4">Reader Feedback Log</h3>
                         {loadingFeedbacks ? (
                           <div className="py-20 text-center text-muted">Loading feedbacks...</div>
@@ -2821,7 +2879,7 @@ export function AdminPage({ data }: AdminPageProps) {
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </section>

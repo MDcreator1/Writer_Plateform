@@ -3,7 +3,7 @@ import type { Chapter as DbChapter, CoinPackage as DbCoinPackage, Story as DbSto
 import { coinPackages as fallbackPackages, stories as fallbackStories, type CoinPackage, type Story } from "@/lib/content";
 import { prisma } from "@/lib/prisma";
 
-type StoryWithChapters = DbStory & { chapters: DbChapter[] };
+type StoryWithChapters = DbStory & { chapters: DbChapter[]; _count?: { [key: string]: number | undefined; readingHistory?: number } };
 
 function formatReads(count: number) {
   if (count >= 1_000_000) {
@@ -15,6 +15,25 @@ function formatReads(count: number) {
   }
 
   return String(count);
+}
+
+function fallbackStoriesWithoutFakeReads(limit?: number) {
+  return fallbackStories.slice(0, limit ?? fallbackStories.length).map((story) => ({
+    ...story,
+    reads: "0",
+    readsCount: 0
+  }));
+}
+
+function fallbackStoryWithoutFakeReads(slug: string) {
+  const story = fallbackStories.find((item) => item.slug === slug);
+  return story
+    ? {
+        ...story,
+        reads: "0",
+        readsCount: 0
+      }
+    : null;
 }
 
 function mapChapter(chapter: DbChapter, unlockedChapterIds = new Set<string>()) {
@@ -39,14 +58,16 @@ export function mapDbStoryToCard(story: StoryWithChapters, unlockedChapterIds = 
   const totalChapters = publishedChapters.length || story.freeChapterCap;
   const freeChapters = publishedChapters.filter((chapter) => chapter.isFree).length || Math.min(story.freeChapterCap, totalChapters);
   const paidChapters = Math.max(totalChapters - freeChapters, 0);
+  const realReadsCount = story._count?.readingHistory ?? story.readsCount;
 
   return {
     id: story.id,
     slug: story.slug,
     title: story.title,
     genre: story.genre,
+    genres: story.genres,
     rating: Number(story.ratingAverage || 0),
-    reads: formatReads(story.readsCount),
+    reads: formatReads(realReadsCount),
     chapters: totalChapters,
     freeChapters,
     paidChapters,
@@ -54,14 +75,21 @@ export function mapDbStoryToCard(story: StoryWithChapters, unlockedChapterIds = 
     author: story.authorName,
     cover: story.coverUrl || "",
     accent: "from-accent to-accent2",
-    tags: story.tags.length ? story.tags : [story.genre, story.storyType, story.language].filter(Boolean),
+    tags: story.tags.length ? story.tags : [story.genre, story.storyType, story.language].filter(Boolean) as string[],
     chapterList,
     totalChapter: totalChapters,
     storyType: story.storyType || "novel",
     published: story.published,
     publicationStatus: story.publicationStatus,
     defaultChapterCoinPrice: story.defaultChapterCoinPrice,
-    freeChapterCap: story.freeChapterCap
+    freeChapterCap: story.freeChapterCap,
+    language: story.language,
+    storyLength: story.storyLength || undefined,
+    leadingGender: story.leadingGender || undefined,
+    tagCategory: story.tagCategory || undefined,
+    warningNotice: story.warningNotice || undefined,
+    ratingAverage: story.ratingAverage || undefined,
+    readsCount: realReadsCount || undefined,
   };
 }
 
@@ -80,14 +108,17 @@ export async function getPublishedStoryCards(limit?: number) {
   try {
     const dbStories = await prisma.story.findMany({
       where: { published: true },
-      include: { chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } } },
+      include: {
+        chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } },
+        _count: { select: { readingHistory: true } }
+      },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
       take: limit
     });
 
-    return dbStories.length ? dbStories.map((story) => mapDbStoryToCard(story)) : fallbackStories.slice(0, limit ?? fallbackStories.length);
+    return dbStories.length ? dbStories.map((story) => mapDbStoryToCard(story)) : fallbackStoriesWithoutFakeReads(limit);
   } catch {
-    return fallbackStories.slice(0, limit ?? fallbackStories.length);
+    return fallbackStoriesWithoutFakeReads(limit);
   }
 }
 
@@ -108,7 +139,10 @@ export async function getPublishedStoryCardBySlug(slug: string) {
   try {
     const dbStory = await prisma.story.findFirst({
       where: { slug, published: true },
-      include: { chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } } }
+      include: {
+        chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } },
+        _count: { select: { readingHistory: true } }
+      }
     });
 
     if (dbStory) {
@@ -118,14 +152,17 @@ export async function getPublishedStoryCardBySlug(slug: string) {
     // Fall through to local fallback content.
   }
 
-  return fallbackStories.find((story) => story.slug === slug) ?? null;
+  return fallbackStoryWithoutFakeReads(slug);
 }
 
 export async function getReaderStoryBySlug(slug: string, userId: string) {
   try {
     const dbStory = await prisma.story.findFirst({
       where: { slug, published: true },
-      include: { chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } } }
+      include: {
+        chapters: { where: { status: "PUBLISHED" }, orderBy: { number: "asc" } },
+        _count: { select: { readingHistory: true } }
+      }
     });
 
     if (!dbStory) {
@@ -143,7 +180,7 @@ export async function getReaderStoryBySlug(slug: string, userId: string) {
       walletBalance: wallet.balance
     };
   } catch {
-    const fallback = fallbackStories.find((story) => story.slug === slug) ?? null;
+    const fallback = fallbackStoryWithoutFakeReads(slug);
     return fallback ? { story: fallback, walletBalance: 0 } : null;
   }
 }

@@ -80,8 +80,6 @@ type AdminStoryDetailsProps = {
   };
 };
 
-const DEFAULT_WRITING_STUDIO_URL = "http://localhost:5500/story-novel-project-editor.html";
-
 export function AdminStoryDetails({ data }: AdminStoryDetailsProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -164,13 +162,14 @@ export function AdminStoryDetails({ data }: AdminStoryDetailsProps) {
   ] as const;
 
   function buildWritingStudioUrl(chapterId?: string) {
-    const studioUrl = process.env.NEXT_PUBLIC_WRITING_STUDIO_URL?.trim() || DEFAULT_WRITING_STUDIO_URL;
-    const platformUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+    const studioUrl = "/admin/studio";
+    const platformUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "";
 
     try {
-      const url = new URL(studioUrl);
+      const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+      const url = new URL(studioUrl, base);
       url.searchParams.set("platformAction", "manage-chapters");
-      url.searchParams.set("platformUrl", platformUrl);
+      url.searchParams.set("platformUrl", platformUrl || base);
       url.searchParams.set("platformStoryId", story.id);
       url.searchParams.set("platformStoryTitle", story.title);
       if (studioProject?.projectId) {
@@ -455,13 +454,10 @@ export function AdminStoryDetails({ data }: AdminStoryDetailsProps) {
             </button>
             <a
               href={buildWritingStudioUrl()}
-              target="writer_studio"
-              rel="noreferrer"
               className="lm-btn-secondary inline-flex items-center gap-2 py-2 px-3 text-sm"
             >
               <BookOpen className="h-4 w-4" />
               Open Studio
-              <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
         </div>
@@ -699,24 +695,16 @@ export function AdminStoryDetails({ data }: AdminStoryDetailsProps) {
                                       className="lm-btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold"
                                       title="Edit chapter title/pricing/content"
                                     >
-                                      <Edit3 className="h-3.5 w-3.5" /> Edit
+                                      <Edit3 className="h-3.5 w-3.5" /> Quick Edit
                                     </button>
 
-                                    {chapter.studioDocumentId ? (
-                                      <a
-                                        href={buildWritingStudioUrl(chapter.studioDocumentId)}
-                                        target="writer_studio"
-                                        rel="noreferrer"
-                                        className="lm-btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs"
-                                        title={`Open document in Writing Studio`}
-                                      >
-                                        Studio <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    ) : (
-                                      <span className="text-[10px] text-muted bg-surface-soft px-2 py-1 rounded" title="Platform generated document">
-                                        Platform
-                                      </span>
-                                    )}
+                                    <a
+                                      href={buildWritingStudioUrl(chapter.studioDocumentId || chapter.id)}
+                                      className="lm-btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs"
+                                      title="Open chapter in Writing Studio"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" /> Open in Studio
+                                    </a>
 
                                     <div className="relative inline-block">
                                       <button

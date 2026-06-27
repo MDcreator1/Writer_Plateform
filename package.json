@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/start-hybrid.mjs dev",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
-    "studio:start": "node Writer_studio/server.mjs",
+    "start": "next start",
     "studio:backfill": "tsx scripts/backfill-studio-workspaces.ts",
     "lint": "eslint .",
     "prisma:generate": "prisma generate",

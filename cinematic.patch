@@ -1,0 +1,2516 @@
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1,24 +1,24 @@
+ # Cinematic Novel Reader Layout Tasklist
+ 
+-- `[ ]` Append custom CSS styles to `app/globals.css`
+-- `[ ]` Setup layout directories & registry
+-  - `[ ]` Create directory `components/reader-layouts`
+-  - `[ ]` Create `components/reader-layouts/registry.ts`
+-- `[ ]` Refactor Classic layout shell
+-  - `[ ]` Move existing reader to `components/reader-layouts/classic.tsx`
+-  - `[ ]` Refactor `components/reader-page.tsx` to switch layouts
+-- `[ ]` Create story lore service `lib/story-lore.ts`
+-  - `[ ]` Hardcode details for seed stories (`ember-archive`, `neon-oracle`, `monsoon-court`)
+-  - `[ ]` Implement dynamic fallback generator for custom stories
+-- `[ ]` Implement Cinematic layout page
+-  - `[ ]` Create `components/reader-layouts/cinematic.tsx`
+-  - `[ ]` Port immersive UI sub-sections (Hero, Codex, Characters, Archives, Reading Terminal, Comments, Recommendations, Author profile)
+-  - `[ ]` Hook up real coin balance, unlock api, comments list/post, and page progress
+-- `[ ]` Extend Layouts Management API
+-  - `[ ]` Update `app/api/admin/layouts/route.ts` to support scanning `reader-layouts`
+-- `[ ]` Add Layout controls to Admin interface
+-  - `[ ]` Update `components/admin-page.tsx` state and layout picker
+-- `[ ]` Connect page router layout fetch
+-  - `[ ]` Update `app/read/[slug]/page.tsx` to pass active reader layout
+-- `[ ]` Verify build & runtime stability
++- `[x]` Append custom CSS styles to `app/globals.css`
++- `[x]` Setup layout directories & registry
++  - `[x]` Create directory `components/reader-layouts`
++  - `[x]` Create `components/reader-layouts/registry.ts`
++- `[x]` Refactor Classic layout shell
++  - `[x]` Move existing reader to `components/reader-layouts/classic.tsx`
++  - `[x]` Refactor `components/reader-page.tsx` to switch layouts
++- `[x]` Create story lore service `lib/story-lore.ts`
++  - `[x]` Hardcode details for seed stories (`ember-archive`, `neon-oracle`, `monsoon-court`)
++  - `[x]` Implement dynamic fallback generator for custom stories
++- `[x]` Implement Cinematic layout page
++  - `[x]` Create `components/reader-layouts/cinematic.tsx`
++  - `[x]` Port immersive UI sub-sections (Hero, Codex, Characters, Archives, Reading Terminal, Comments, Recommendations, Author profile)
++  - `[x]` Hook up real coin balance, unlock api, comments list/post, and page progress
++- `[x]` Extend Layouts Management API
++  - `[x]` Update `app/api/admin/layouts/route.ts` to support scanning `reader-layouts`
++- `[x]` Add Layout controls to Admin interface
++  - `[x]` Update `components/admin-page.tsx` state and layout picker
++- `[x]` Connect page router layout fetch
++  - `[x]` Update `app/read/[slug]/page.tsx` to pass active reader layout
++- `[/]` Verify build & runtime stability
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -73,6 +73,7 @@
+   width: "narrow" | "medium" | "wide";
+   fullscreen: boolean;
+   backgroundGlow: boolean;
++  dropCap: boolean;
+ }
+ 
+ const DEFAULT_SETTINGS: ReaderSettings = {
+@@ -81,7 +81,8 @@
+   fontFamily: "serif",
+   width: "medium",
+   fullscreen: false,
+-  backgroundGlow: true
++  backgroundGlow: true,
++  dropCap: true
+ };
+ 
+ export const metadata = {
+@@ -152,7 +152,8 @@
+       const saved = localStorage.getItem("aetheris_reader_settings");
+       if (saved) {
+         try {
+-          return JSON.parse(saved);
++          const parsed = JSON.parse(saved);
++          return { ...DEFAULT_SETTINGS, ...parsed };
+         } catch (e) {}
+       }
+     }
+@@ -187,6 +187,13 @@
+   const [loadingComments, setLoadingComments] = useState(false);
+   const [postingComment, setPostingComment] = useState(false);
+ 
++  // Font family mapping
++  const fontClasses = {
++    serif: 'font-serif tracking-normal antialiased',
++    sans: 'font-sans tracking-wide font-normal antialiased',
++    mono: 'font-mono tracking-tight text-sm leading-relaxed antialiased'
++  };
++
+   // Spacing Scale mapping
+   const spacingScaleClasses = {
+     1.5: "leading-relaxed",
+@@ -965,7 +965,7 @@
+                               key={index} 
+                               className="indent-0 md:indent-4 leading-relaxed font-light hover:opacity-80 transition-opacity duration-300"
+                             >
+-                              {isFirst && block.text ? (
++                              {isFirst && block.text && settings.dropCap ? (
+                                 <>
+                                   <span className="text-4xl float-left mr-2.5 mt-1 text-indigo-400 font-display font-black leading-none">{block.text.charAt(0)}</span>
+                                   {block.text.slice(1)}
+@@ -1109,9 +1109,9 @@
+                   initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: 15, scale: 0.95 }}
+-                  className="fixed bottom-20 right-6 lg:bottom-1/3 lg:right-20 z-40 w-80 p-5 rounded-2xl glass-panel-heavy border border-white/10 text-left space-y-5 shadow-2xl text-gray-200 font-hud"
+-                >
+-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
++                  className="fixed bottom-20 right-6 lg:bottom-1/3 lg:right-20 z-40 w-80 max-h-[75vh] overflow-y-auto p-5 rounded-2xl glass-panel-heavy border border-white/10 text-left space-y-4 shadow-2xl text-gray-200 font-hud custom-scrollbar"
++                >
++                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                       <Settings2 size={13} />
+                       Display Controls
+@@ -1118,4 +1118,4 @@
+-                    <button onClick={() => setShowSettings(false)} className="text-xs text-gray-500 hover:text-gray-300">
++                    <button onClick={() => setShowSettings(false)} className="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">
+                       Close
+                     </button>
+                   </div>
+@@ -1122,5 +1122,82 @@
+-                  {/* Font Sizes */}
+-                  <div className="space-y-2">
++                  {/* Predefined Layout Presets */}
++                  <div className="space-y-2">
++                    <span className="text-xs font-medium text-gray-400 block">Style Presets</span>
++                    <div className="grid grid-cols-2 gap-1.5 text-[10px]">
++                      {[
++                        {
++                          name: "Cinematic Glow",
++                          settings: { fontSize: 19, lineHeight: 1.8, fontFamily: "serif", width: "medium", backgroundGlow: true, dropCap: true, theme: "dark" }
++                        },
++                        {
++                          name: "Cozy Sepia",
++                          settings: { fontSize: 18, lineHeight: 1.8, fontFamily: "serif", width: "medium", backgroundGlow: false, dropCap: true, theme: "sepia" }
++                        },
++                        {
++                          name: "Clean Sans",
++                          settings: { fontSize: 16, lineHeight: 1.5, fontFamily: "sans", width: "narrow", backgroundGlow: false, dropCap: false, theme: "light" }
++                        },
++                        {
++                          name: "Focus Mono",
++                          settings: { fontSize: 15, lineHeight: 1.5, fontFamily: "mono", width: "wide", backgroundGlow: true, dropCap: false, theme: "dark" }
++                        }
++                      ].map((preset) => {
++                        const isMatched = 
++                          settings.fontSize === preset.settings.fontSize &&
++                          settings.lineHeight === preset.settings.lineHeight &&
++                          settings.fontFamily === preset.settings.fontFamily &&
++                          settings.width === preset.settings.width &&
++                          settings.backgroundGlow === preset.settings.backgroundGlow &&
++                          settings.dropCap === preset.settings.dropCap &&
++                          settings.theme === preset.settings.theme;
++
++                        return (
++                          <button
++                            key={preset.name}
++                            onClick={() => {
++                              setSettings((prev) => ({
++                                ...prev,
++                                ...preset.settings
++                              }));
++                            }}
++                            className={`py-1.5 px-2 rounded border transition cursor-pointer text-center truncate ${
++                              isMatched 
++                                ? "bg-indigo-600/30 text-indigo-200 border-indigo-500/50 font-bold" 
++                                : "bg-slate-900/60 text-gray-400 border-white/5 hover:text-gray-200 hover:border-white/10"
++                            }`}
++                          >
++                            {preset.name}
++                          </button>
++                        );
++                      })}
++                    </div>
++                  </div>
++
++                  {/* Reading Theme Palette Selector */}
++                  <div className="space-y-2 pt-1 border-t border-white/5">
++                    <span className="text-xs font-medium text-gray-400 block">Color Theme</span>
++                    <div className="grid grid-cols-3 gap-1.5 text-[11px]">
++                      {[
++                        { id: "dark", label: "Dark", style: "bg-[#080a10] text-gray-300 border-white/10" },
++                        { id: "sepia", label: "Sepia", style: "bg-[#faf6f0] text-[#433422] border-[#433422]/20" },
++                        { id: "light", label: "Light", style: "bg-white text-gray-900 border-gray-300" }
++                      ].map((t) => (
++                        <button
++                          key={t.id}
++                          onClick={() => updateSetting("theme", t.id as any)}
++                          className={`py-1 px-1.5 rounded border transition cursor-pointer font-medium text-center ${t.style} ${
++                            settings.theme === t.id 
++                              ? "ring-2 ring-indigo-500 ring-offset-1 ring-offset-black scale-95" 
++                              : "opacity-75 hover:opacity-100"
++                          }`}
++                        >
++                          {t.label}
++                        </button>
++                      ))}
++                    </div>
++                  </div>
++
++                  {/* Font Sizes Slider & Buttons */}
++                  <div className="space-y-2 pt-1 border-t border-white/5">
+                     <div className="flex justify-between text-xs font-medium text-gray-400">
+                       <span>Text Size</span>
+                       <span className="font-mono">{settings.fontSize}px</span>
+@@ -1127,13 +1127,21 @@
+-                    <div className="flex gap-3">
+-                      <button 
+-                        onClick={() => updateSetting("fontSize", Math.max(settings.fontSize - 2, 14))} 
+-                        className="flex-1 py-1.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
++                    <div className="flex gap-2.5 items-center">
++                      <button 
++                        onClick={() => updateSetting("fontSize", Math.max(settings.fontSize - 1, 12))} 
++                        className="py-1 px-2.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
+                       >
+                         A-
+                       </button>
+-                      <button 
+-                        onClick={() => updateSetting("fontSize", Math.min(settings.fontSize + 2, 28))} 
+-                        className="flex-1 py-1.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
++                      <input
++                        type="range"
++                        min="12"
++                        max="32"
++                        value={settings.fontSize}
++                        onChange={(e) => updateSetting("fontSize", parseInt(e.target.value))}
++                        className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
++                      />
++                      <button 
++                        onClick={() => updateSetting("fontSize", Math.min(settings.fontSize + 1, 32))} 
++                        className="py-1 px-2.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
+                       >
+                         A+
+                       </button>
+@@ -1140,7 +1140,7 @@
+                   </div>
+ 
+                   {/* Fonts */}
+-                  <div className="space-y-2">
++                  <div className="space-y-2 pt-1 border-t border-white/5">
+                     <span className="text-xs font-medium text-gray-400 block">Typeface Variant</span>
+                     <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                       {(["serif", "sans", "mono"] as const).map((font) => (
+@@ -1157,7 +1157,7 @@
+                   </div>
+ 
+                   {/* Spacing Scale (Line Height) */}
+-                  <div className="space-y-2">
++                  <div className="space-y-2 pt-1 border-t border-white/5">
+                     <span className="text-xs font-medium text-gray-400 block flex items-center gap-1">
+                       <Type size={11} />
+                       Spacing Scale
+@@ -1177,10 +1177,10 @@
+                   </div>
+ 
+                   {/* Column Width */}
+-                  <div className="space-y-2">
++                  <div className="space-y-2 pt-1 border-t border-white/5">
+                     <span className="text-xs font-medium text-gray-400 block flex items-center gap-1">
+                       <MoveHorizontal size={11} />
+-                      Column Margin Width
++                      Column Width
+                     </span>
+                     <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                       {(["narrow", "medium", "wide"] as const).map((w) => (
+@@ -1209,6 +1209,20 @@
+                       <div className="w-4 h-4 bg-white rounded-full shadow-md" />
+                     </button>
+                   </div>
++
++                  {/* Drop Cap Switch */}
++                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
++                    <span className="text-xs text-gray-400">Cinematic Drop Cap</span>
++                    <button
++                      type="button"
++                      onClick={() => updateSetting("dropCap", !settings.dropCap)}
++                      className={`w-10 h-5 rounded-full p-0.5 transition duration-300 cursor-pointer ${
++                        settings.dropCap ? "bg-indigo-600 flex justify-end" : "bg-slate-800 flex justify-start"
++                      }`}
++                    >
++                      <div className="w-4 h-4 bg-white rounded-full shadow-md" />
++                    </button>
++                  </div>
+                 </motion.div>
+               )}
+             </AnimatePresence>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -201,7 +201,7 @@
+   };
+ 
+   // Spacing Scale mapping
+-  const spacingScaleClasses = {
++  const spacingScaleClasses: Record<number, string> = {
+     1.5: "leading-relaxed",
+     1.8: "leading-[1.8]",
+     2.1: "leading-[2.1]"
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1157,7 +1157,7 @@
+                           name: "Focus Mono",
+                           settings: { fontSize: 15, lineHeight: 1.5, fontFamily: "mono", width: "wide", backgroundGlow: true, dropCap: false, theme: "dark" }
+                         }
+-                      ].map((preset) => {
++                      ] as const}.map((preset) => {
+                         const isMatched = 
+                           settings.fontSize === preset.settings.fontSize &&
+                           settings.lineHeight === preset.settings.lineHeight &&
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1140,7 +1140,7 @@
+                   <div className="space-y-2">
+                     <span className="text-xs font-medium text-gray-400 block">Style Presets</span>
+                     <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+-                      {[
++                      {([
+                         {
+                           name: "Cinematic Glow",
+                           settings: { fontSize: 19, lineHeight: 1.8, fontFamily: "serif", width: "medium", backgroundGlow: true, dropCap: true, theme: "dark" }
+@@ -1156,7 +1156,7 @@
+                           name: "Focus Mono",
+                           settings: { fontSize: 15, lineHeight: 1.5, fontFamily: "mono", width: "wide", backgroundGlow: true, dropCap: false, theme: "dark" }
+                         }
+-                      ] as const}.map((preset) => {
++                      ] as const).map((preset) => {
+                         const isMatched = 
+                           settings.fontSize === preset.settings.fontSize &&
+                           settings.lineHeight === preset.settings.lineHeight &&
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -14,6 +14,7 @@
+ import Link from "next/link";
+ import { ProtectedReader } from "@/components/protected-reader";
+ import { ThemeSwitcher } from "@/components/theme-switcher";
++import { useTheme } from "@/components/theme-provider";
+ import { CustomSelect } from "@/components/custom-select";
+ import { type Chapter, type Story } from "@/lib/content";
+ import { getStoryLore, type StoryLore } from "@/lib/story-lore";
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -69,9 +69,8 @@
+ interface ReaderSettings {
+   fontSize: number;
+   lineHeight: number;
+-  theme: "dark" | "sepia" | "light";
+   fontFamily: "serif" | "sans" | "mono";
+-  width: "narrow" | "medium" | "wide";
++  customWidth: number;
+   fullscreen: boolean;
+   backgroundGlow: boolean;
+   dropCap: boolean;
+@@ -79,9 +79,8 @@
+ const DEFAULT_SETTINGS: ReaderSettings = {
+   fontSize: 18,
+   lineHeight: 1.8,
+-  theme: "dark",
+   fontFamily: "serif",
+-  width: "medium",
++  customWidth: 768,
+   fullscreen: false,
+   backgroundGlow: true,
+   dropCap: true
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -103,6 +103,12 @@
+   studioData = null
+ }: CinematicLayoutProps) {
+   const { showToast } = useToast();
++  const { theme } = useTheme();
++
++  const isDarkTheme = theme !== "lm-theme-light" && theme !== "lm-theme-sunset";
++  const isSepiaTheme = theme === "lm-theme-sunset";
++  const isLightTheme = theme === "lm-theme-light";
++
+   const [coinBalance, setCoinBalance] = useState(initialCoinBalance);
+   
+   // Chapter unlock tracking
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -501,9 +501,9 @@
+ 
+   return (
+     <div className={`relative min-h-screen transition-colors duration-500 overflow-hidden pb-12 ${
+-      settings.theme === "dark" 
++      isDarkTheme 
+         ? "bg-[#05070a] text-slate-200" 
+-        : settings.theme === "sepia" 
++        : isSepiaTheme 
+           ? "bg-[#faf6f0] text-[#433422]" 
+           : "bg-white text-gray-900"
+     } selection:bg-indigo-500/30 selection:text-white`}>
+@@ -510,5 +510,5 @@
+       {/* Ambient background glows */}
+-      {settings.theme === "dark" && settings.backgroundGlow && (
++      {isDarkTheme && settings.backgroundGlow && (
+         <>
+           <div className="absolute top-0 left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none ambient-light-1" />
+           <div className="absolute bottom-0 right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-900/5 blur-[100px] pointer-events-none ambient-light-2" />
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -536,9 +536,9 @@
+ 
+       {/* 2. REDESIGNED STICKY HUD HEADER */}
+       <header className={`sticky top-0 z-40 w-full backdrop-blur-xl border-b shadow-md ${
+-        settings.theme === "dark" 
++        isDarkTheme 
+           ? "bg-[#05070a]/60 border-white/5" 
+-          : settings.theme === "sepia" 
++          : isSepiaTheme 
+             ? "bg-[#faf6f0]/60 border-[#433422]/10" 
+             : "bg-white/60 border-gray-200"
+       }`}>
+@@ -548,9 +548,9 @@
+             <Link
+               href="/"
+               className={`group flex h-9 w-9 items-center justify-center rounded-xl border transition-all active:scale-95 shadow-sm ${
+-                settings.theme === "dark"
++                isDarkTheme
+                   ? "bg-slate-900 border-white/5 hover:border-indigo-500/30 hover:bg-slate-800"
+-                  : settings.theme === "sepia"
++                  : isSepiaTheme
+                     ? "bg-[#faf6f0] border-[#433422]/15 hover:bg-[#eae2d5]"
+                     : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+               }`}
+@@ -557,6 +557,6 @@
+             >
+               <ArrowLeft size={16} className={`transition-transform group-hover:-translate-x-0.5 ${
+-                settings.theme === "dark" ? "text-gray-400 group-hover:text-white" : "text-gray-600 group-hover:text-black"
++                isDarkTheme ? "text-gray-400 group-hover:text-white" : "text-gray-600 group-hover:text-black"
+               }`} />
+             </Link>
+           </div>
+@@ -566,7 +566,7 @@
+           {/* Right: Coins, Unlocked, and Profile Avatar */}
+           <div className="flex items-center gap-3 relative">
+             <span className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-mono ${
+-              settings.theme === "dark"
++              isDarkTheme
+                 ? "bg-indigo-950/40 border-indigo-500/20 text-indigo-300"
+                 : "bg-indigo-50 border-indigo-100 text-indigo-700"
+             }`}>
+@@ -573,9 +573,9 @@
+             </span>
+             
+             <span className={`hidden sm:inline-block px-2.5 py-1.5 rounded-lg border text-[10px] font-mono ${
+-              settings.theme === "dark"
++              isDarkTheme
+                 ? "bg-slate-900 border-white/5 text-gray-400"
+-                : settings.theme === "sepia"
++                : isSepiaTheme
+                   ? "bg-[#faf6f0] border-[#433422]/10 text-[#433422]/80"
+                   : "bg-gray-50 border-gray-100 text-gray-500"
+             }`}>
+@@ -586,9 +586,9 @@
+               <button
+                 type="button"
+                 className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition hover:scale-105 cursor-pointer ${
+-                  settings.theme === "dark"
++                  isDarkTheme
+                     ? "border-white/5 bg-slate-900 text-indigo-300"
+-                    : settings.theme === "sepia"
++                    : isSepiaTheme
+                       ? "border-[#433422]/10 bg-[#faf6f0] text-amber-900"
+                       : "border-gray-200 bg-gray-50 text-indigo-700"
+                 }`}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -906,9 +906,9 @@
+           id="reader"
+           ref={readerRef}
+           className={`relative py-20 px-4 md:px-8 border-b border-white/5 transition-colors duration-500 ${
+-            settings.theme === "dark" 
++            isDarkTheme 
+               ? "bg-[#080a10]" 
+-              : settings.theme === "sepia" 
++              : isSepiaTheme 
+                 ? "bg-[#faf6f0]" 
+                 : "bg-white"
+           }`}
+@@ -915,11 +915,12 @@
+           <div className="max-w-7xl mx-auto flex flex-col items-center">
+             
+             {/* Top HUD */}
+-            <div className={`w-full flex items-center justify-between mb-6 pb-3 border-b ${
+-              settings.theme === "dark" ? "border-white/5 text-gray-400" : "border-black/10 text-gray-500"
+-            } font-hud text-xs ${
+-              settings.width === "narrow" ? "max-w-xl" : settings.width === "wide" ? "max-w-5xl" : "max-w-3xl"
+-            }`}>
++            <div 
++              className={`w-full flex items-center justify-between mb-6 pb-3 border-b ${
++                isDarkTheme ? "border-white/5 text-gray-400" : "border-black/10 text-gray-500"
++              } font-hud text-xs`}
++              style={{ maxWidth: `${settings.customWidth}px` }}
++            >
+               <div className="flex items-center gap-3">
+                 <span className="font-semibold tracking-widest text-indigo-500 font-mono">CH. {activeChapter?.number}</span>
+                 <span className="opacity-50">|</span>
+@@ -930,15 +930,22 @@
+             </div>
+ 
+             {/* Prose container */}
+-            <div className={`w-full rounded-3xl border p-6 md:p-12 relative transition-all duration-300 ${
+-              settings.width === "narrow" ? "max-w-xl md:px-6" : settings.width === "wide" ? "max-w-5xl md:px-16" : "max-w-3xl md:px-10"
+-            } ${
+-              settings.theme === "dark" 
+-                ? "theme-reader-dark border-white/5" 
+-                : settings.theme === "sepia" 
+-                  ? "theme-reader-sepia border-[#433422]/10 shadow-[0_4px_30px_rgba(67,52,34,0.05)]" 
+-                  : "theme-reader-light border-gray-200 shadow-[0_4px_30px_rgba(0,0,0,0.02)]"
+-            }`}>
++            <div 
++              className={`w-full rounded-3xl border p-6 relative transition-all duration-300 ${
++                settings.customWidth <= 650 
++                  ? "md:p-6 md:px-6" 
++                  : settings.customWidth >= 950 
++                    ? "md:p-12 md:px-16" 
++                    : "md:p-10 md:px-10"
++              } ${
++                isDarkTheme 
++                  ? "theme-reader-dark border-white/5" 
++                  : isSepiaTheme 
++                    ? "theme-reader-sepia border-[#433422]/10 shadow-[0_4px_30px_rgba(67,52,34,0.05)]" 
++                    : "theme-reader-light border-gray-200 shadow-[0_4px_30px_rgba(0,0,0,0.02)]"
++              }`}
++              style={{ maxWidth: `${settings.customWidth}px` }}
++            >
+               
+               <ProtectedReader user={currentUser}>
+                 {contentLoading ? (
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1121,13 +1121,7 @@
+                 <Volume2 size={15} />
+               </button>
+ 
+-              <button
+-                onClick={() => updateSetting("theme", settings.theme === "dark" ? "sepia" : settings.theme === "sepia" ? "light" : "dark")}
+-                className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer"
+-                title="Cycle Reading Palette"
+-              >
+-                {settings.theme === "dark" ? <Moon size={15} /> : settings.theme === "sepia" ? <Compass size={15} /> : <Sun size={15} />}
+-              </button>
++              <ThemeSwitcher compact variant="cinematic" />
+             </div>
+ 
+             {/* Display HUD Settings */}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1150,19 +1150,19 @@
+                       {([
+                         {
+                           name: "Cinematic Glow",
+-                          settings: { fontSize: 19, lineHeight: 1.8, fontFamily: "serif", width: "medium", backgroundGlow: true, dropCap: true, theme: "dark" }
+-                        },
+-                        {
+-                          name: "Cozy Sepia",
+-                          settings: { fontSize: 18, lineHeight: 1.8, fontFamily: "serif", width: "medium", backgroundGlow: false, dropCap: true, theme: "sepia" }
++                          settings: { fontSize: 19, lineHeight: 1.8, fontFamily: "serif", customWidth: 800, backgroundGlow: true, dropCap: true }
++                        },
++                        {
++                          name: "Cozy Neutral",
++                          settings: { fontSize: 18, lineHeight: 1.8, fontFamily: "serif", customWidth: 768, backgroundGlow: false, dropCap: true }
+                         },
+                         {
+                           name: "Clean Sans",
+-                          settings: { fontSize: 16, lineHeight: 1.5, fontFamily: "sans", width: "narrow", backgroundGlow: false, dropCap: false, theme: "light" }
++                          settings: { fontSize: 16, lineHeight: 1.5, fontFamily: "sans", customWidth: 600, backgroundGlow: false, dropCap: false }
+                         },
+                         {
+                           name: "Focus Mono",
+-                          settings: { fontSize: 15, lineHeight: 1.5, fontFamily: "mono", width: "wide", backgroundGlow: true, dropCap: false, theme: "dark" }
++                          settings: { fontSize: 15, lineHeight: 1.5, fontFamily: "mono", customWidth: 950, backgroundGlow: true, dropCap: false }
+                         }
+                       ] as const).map((preset) => {
+                         const isMatched = 
+@@ -1169,9 +1169,8 @@
+                           settings.lineHeight === preset.settings.lineHeight &&
+                           settings.fontFamily === preset.settings.fontFamily &&
+-                          settings.width === preset.settings.width &&
++                          settings.customWidth === preset.settings.customWidth &&
+                           settings.backgroundGlow === preset.settings.backgroundGlow &&
+-                          settings.dropCap === preset.settings.dropCap &&
+-                          settings.theme === preset.settings.theme;
++                          settings.dropCap === preset.settings.dropCap;
+ 
+                         return (
+                           <button
+@@ -1194,27 +1194,37 @@
+                     </div>
+                   </div>
+ 
+-                  {/* Reading Theme Palette Selector */}
+-                  <div className="space-y-2 pt-1 border-t border-white/5">
+-                    <span className="text-xs font-medium text-gray-400 block">Color Theme</span>
+-                    <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+-                      {[
+-                        { id: "dark", label: "Dark", style: "bg-[#080a10] text-gray-300 border-white/10" },
+-                        { id: "sepia", label: "Sepia", style: "bg-[#faf6f0] text-[#433422] border-[#433422]/20" },
+-                        { id: "light", label: "Light", style: "bg-white text-gray-900 border-gray-300" }
+-                      ].map((t) => (
+-                        <button
+-                          key={t.id}
+-                          onClick={() => updateSetting("theme", t.id as any)}
+-                          className={`py-1 px-1.5 rounded border transition cursor-pointer font-medium text-center ${t.style} ${
+-                            settings.theme === t.id 
+-                              ? "ring-2 ring-indigo-500 ring-offset-1 ring-offset-black scale-95" 
+-                              : "opacity-75 hover:opacity-100"
+-                          }`}
+-                        >
+-                          {t.label}
+-                        </button>
+-                      ))}
++                  {/* Reading Content Box Width Slider */}
++                  <div className="space-y-2 pt-1 border-t border-white/5">
++                    <div className="flex justify-between text-xs font-medium text-gray-400">
++                      <span className="flex items-center gap-1">
++                        <MoveHorizontal size={11} />
++                        Content Box Width
++                      </span>
++                      <span className="font-mono text-[11px]">{settings.customWidth}px</span>
++                    </div>
++                    <div className="flex gap-2.5 items-center">
++                      <button 
++                        onClick={() => updateSetting("customWidth", Math.max(settings.customWidth - 25, 500))} 
++                        className="py-1 px-2.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
++                      >
++                        W-
++                      </button>
++                      <input
++                        type="range"
++                        min="500"
++                        max="1100"
++                        step="25"
++                        value={settings.customWidth}
++                        onChange={(e) => updateSetting("customWidth", parseInt(e.target.value))}
++                        className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
++                      />
++                      <button 
++                        onClick={() => updateSetting("customWidth", Math.min(settings.customWidth + 25, 1100))} 
++                        className="py-1 px-2.5 bg-slate-900 border border-white/5 hover:border-white/15 rounded text-xs transition cursor-pointer active:scale-95"
++                      >
++                        W+
++                      </button>
+                     </div>
+                   </div>
+ 
+@@ -1286,27 +1286,6 @@
+                     </div>
+                   </div>
+ 
+-                  {/* Column Width */}
+-                  <div className="space-y-2 pt-1 border-t border-white/5">
+-                    <span className="text-xs font-medium text-gray-400 block flex items-center gap-1">
+-                      <MoveHorizontal size={11} />
+-                      Column Width
+-                    </span>
+-                    <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+-                      {(["narrow", "medium", "wide"] as const).map((w) => (
+-                        <button
+-                          key={w}
+-                          onClick={() => updateSetting("width", w)}
+-                          className={`py-1.5 rounded border capitalize transition cursor-pointer ${
+-                            settings.width === w ? "bg-indigo-600/30 text-indigo-200 border-indigo-500/40 font-medium" : "bg-slate-900 text-gray-400 border-white/5 hover:text-gray-200"
+-                          }`}
+-                        >
+-                          {w}
+-                        </button>
+-                      ))}
+-                    </div>
+-                  </div>
+-
+                   {/* Visual Ambient Glow Switch */}
+                   <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                     <span className="text-xs text-gray-400">Atmosphere Glow</span>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -968,7 +968,7 @@
+                         Volume {Math.ceil(activeChapter.number / 10)}
+                       </p>
+                       <h2 className={`text-2xl md:text-3xl font-black font-display tracking-tight leading-tight ${
+-                        settings.theme === "dark" ? "text-white" : settings.theme === "sepia" ? "text-[#433422]" : "text-black"
++                        isDarkTheme ? "text-white" : isSepiaTheme ? "text-[#433422]" : "text-black"
+                       }`}>
+                         Chapter {activeChapter.number}: {activeChapter.title}
+                       </h2>
+@@ -980,7 +980,7 @@
+                         className={`space-y-6 md:space-y-7 text-left ${fontClasses[settings.fontFamily]} ${
+                           spacingScaleClasses[settings.lineHeight]
+                         } ${
+-                          settings.theme === "dark" ? "text-slate-300" : settings.theme === "sepia" ? "text-[#433422]" : "text-gray-900"
++                          isDarkTheme ? "text-slate-300" : isSepiaTheme ? "text-[#433422]" : "text-gray-900"
+                         }`}
+                         style={{ fontSize: `${settings.fontSize}px` }}
+                       >
+@@ -1014,7 +1014,7 @@
+                         disabled={activeIndex <= 0}
+                         onClick={handlePrevChapter}
+                         className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer ${
+-                          settings.theme === "dark"
++                          isDarkTheme
+                             ? "bg-black/40 text-gray-400 hover:text-white border-white/5"
+                             : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200"
+                         }`}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1069,7 +1069,7 @@
+                     <div className="space-y-2">
+                       <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-indigo-400">Locked Fascicle</span>
+                       <h3 className={`text-xl font-bold ${
+-                        settings.theme === "dark" ? "text-white" : "text-black"
++                        isDarkTheme ? "text-white" : "text-black"
+                       }`}>Unlock Chapter {activeChapter?.number}</h3>
+                       <p className="text-xs text-gray-400 leading-relaxed">
+                         â€œ{activeChapter?.title}â€ is currently locked. Spend coins to materialize the record in your neural interface.
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -61,4 +61,41 @@
+ ## Verification Results
+ - **Next.js Production Build**: Executed `npm run build` successfully with zero type checking or compilation errors.
+ - **Relative Route Execution**: API endpoints `/api/studio/*` automatically resolve using session cookies (`velora_session`) with no extra header overrides required.
++
++---
++
++## 8. Page-Specific Theme Switcher & Immersive Cinematic Reader Controls
++We have implemented custom, page-specific designs for the theme switchers and refactored the Cinematic Reader to run off of the main website theme system natively, cleaning up controls and adding a reading container width adjustment system.
++
++### 1. Customized Theme Switchers Per Page Layout
++- **[components/theme-switcher.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/theme-switcher.tsx)**:
++  - Added support for a `variant` prop (`"classic" | "aetheris" | "cinematic"`) to dynamically adapt the trigger button style and selection panel structure.
++  - **Classic**: Renders the standard easel icon button and a clean dropdown menu containing all 6 themes directly.
++  - **Aetheris**: Styled to match the glowing cyberpunk aesthetic. Renders the custom neon-cyan sun/moon combo icon inside a zinc-bordered button, and features a dark transparent dropdown menu (`bg-zinc-950/95 shadow-[0_0_25px_rgba(20,184,166,0.25)] border-zinc-800`) with monospace tracking uppercase fonts.
++  - **Cinematic**: Styled for the sci-fi reader HUD. Renders a minimalist circular moon/sun/palette icon button and opens an indigo-accented dropdown menu (`bg-[#05070a]/95 border-white/10 shadow-[0_0_30px_rgba(99,102,241,0.25)]`) positioned to align center-left of the HUD buttons on desktop, and upwards on mobile.
++- **[components/home-layouts/classic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/home-layouts/classic.tsx)**: Passed `variant="classic"` to the header theme toggler.
++- **[components/home-layouts/aetheris.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/home-layouts/aetheris.tsx)**: Passed `variant="aetheris"` to the telemetry-bar theme switchers.
++
++### 2. Website Theme Integration in Cinematic Reader
++- **[components/reader-layouts/cinematic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/cinematic.tsx)**:
++  - Imported `useTheme` from `theme-provider` and mapped global themes directly. Removed the separate local `settings.theme` state.
++  - mapped themes dynamically: `lm-theme-light` applies the light background, `lm-theme-sunset` applies the cozy sepia/sunset palette, and all other dark/colored themes (`dark`, `grey`, `purple`, `forest`) apply the immersive dark interface with glowing particles.
++  - Replaced all header, locks, buttons, and container styling checks with `isDarkTheme`, `isSepiaTheme` and `isLightTheme` flags.
++
++### 3. Display Settings Adjustments
++- **Style Presets**:
++  - Removed `theme` field from predefined presets. Presets now apply typography, glow, and drop cap presets without overriding the active website theme.
++- **Content Box Width Slider**:
++  - Replaced the local "Color Theme" picker in the settings modal with a **Content Box Width** range slider (min: 500px, max: 1100px, step: 25px) and discrete W-/W+ adjustment buttons.
++  - Replaced the old narrow/medium/wide discrete button layout in settings with the slider state.
++  - Refactored the top HUD bar and text article containers to apply `style={{ maxWidth: `${settings.customWidth}px` }}` dynamically, centering columns and applying padding classes automatically based on width.
++
++### 4. Right-Side Float HUD Buttons
++- Rerouted right-side buttons to display **exactly three circular HUD buttons**:
++  1. **Settings**: Opens/closes typography display settings.
++  2. **Speaker**: Toggles voice synthesis narration.
++  3. **Theme**: Toggles the custom HUD-variant theme switcher (`<ThemeSwitcher compact variant="cinematic" />`).
++
++### Verification Results
++- **Next.js Production Build**: Build compiled successfully with `npm run build` with zero errors. All theme states, layout variant switchers, and inline style adjustments pass validation.
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -192,7 +192,6 @@
+   // Load lore database background
+   const lore = useMemo(() => getStoryLore(story.slug, story.title, story.tags), [story]);
+ 
+-  // Comments states
+   const [comments, setComments] = useState<any[]>([]);
+   const [commentText, setCommentText] = useState("");
+   const [loadingComments, setLoadingComments] = useState(false);
+@@ -199,3 +199,6 @@
++  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
++  const [replyText, setReplyText] = useState("");
++  const [postingReply, setPostingReply] = useState(false);
+ 
+   // Font family mapping
+   const fontClasses = {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -307,6 +307,36 @@
+     }
+   };
+ 
++  const handlePostReply = async (parentId: string) => {
++    if (!replyText.trim() || !activeChapter) return;
++    setPostingReply(true);
++    try {
++      const res = await fetch("/api/comments", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({
++          storyId: story.id,
++          chapterId: activeChapter.id,
++          parentId,
++          body: replyText.trim()
++        })
++      });
++      const body = await res.json();
++      if (res.ok) {
++        setReplyText("");
++        setActiveReplyId(null);
++        fetchComments(activeChapter.id);
++        triggerNotification("Reply beam transmitted successfully.");
++      } else {
++        showToast(body.error?.message || "Failed to transmit reply", "error");
++      }
++    } catch (err) {
++      showToast("Error transmitting reply", "error");
++    } finally {
++      setPostingReply(false);
++    }
++  };
++
+   // Secure content loader
+   const loadChapterContent = useCallback(async (chapterId: string) => {
+     if (chapterContents[chapterId]?.length) {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1405,19 +1405,98 @@
+                 {comments.map((comment) => {
+                   const dispName = comment.user.displayName || comment.user.username || "Reader";
+                   return (
+-                    <div key={comment.id} className="p-4 rounded-xl bg-slate-900/30 border border-white/5 flex gap-4 text-left">
+-                      <div className="w-9 h-9 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center font-bold text-gray-400 text-xs shrink-0 select-none">
+-                        {dispName.slice(0, 2).toUpperCase()}
+-                      </div>
+-                      <div className="space-y-1.5">
+-                        <div className="flex items-center gap-2">
+-                          <span className="text-xs font-hud font-semibold text-indigo-300">{dispName}</span>
+-                          <span className="text-[10px] text-gray-500 font-mono">
+-                            {new Date(comment.createdAt).toLocaleDateString()}
+-                          </span>
+-                        </div>
+-                        <p className="text-xs text-gray-300 leading-relaxed font-sans">{comment.body}</p>
+-                      </div>
++                    <div key={comment.id} className="p-4 rounded-xl bg-slate-900/30 border border-white/5 flex flex-col gap-3 text-left">
++                      <div className="flex gap-4">
++                        <div className="w-9 h-9 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center font-bold text-gray-400 text-xs shrink-0 select-none">
++                          {dispName.slice(0, 2).toUpperCase()}
++                        </div>
++                        <div className="space-y-1.5 flex-1">
++                          <div className="flex items-center gap-2">
++                            <span className="text-xs font-hud font-semibold text-indigo-300">{dispName}</span>
++                            <span className="text-[10px] text-gray-500 font-mono">
++                              {new Date(comment.createdAt).toLocaleDateString()}
++                            </span>
++                          </div>
++                          <p className="text-xs text-gray-300 leading-relaxed font-sans">{comment.body}</p>
++
++                          {/* Reply trigger button */}
++                          <div className="flex items-center gap-4 mt-2">
++                            <button
++                              onClick={() => {
++                                if (activeReplyId === comment.id) {
++                                  setActiveReplyId(null);
++                                } else {
++                                  setActiveReplyId(comment.id);
++                                  setReplyText("");
++                                }
++                              }}
++                              className="text-[9px] font-mono tracking-wider text-indigo-400 uppercase cursor-pointer hover:underline flex items-center gap-1.5"
++                            >
++                              <MessageCircle size={10} />
++                              [ Reply ]
++                            </button>
++                          </div>
++                        </div>
++                      </div>
++
++                      {/* Inline Reply Form */}
++                      {activeReplyId === comment.id && (
++                        <div className="ml-13 p-3 rounded-lg bg-slate-950/80 border border-white/10 flex flex-col gap-2 animate-in fade-in duration-200">
++                          <textarea
++                            value={replyText}
++                            onChange={(e) => setReplyText(e.target.value)}
++                            placeholder="Input transmission reply..."
++                            rows={2}
++                            className="w-full bg-transparent border-0 resize-none text-xs text-gray-200 placeholder-gray-600 focus:ring-0 focus:outline-none"
++                          />
++                          <div className="flex items-center justify-between border-t border-white/5 pt-2">
++                            <span className="text-[8px] font-mono text-gray-600 uppercase">Secure Link</span>
++                            <div className="flex gap-2">
++                              <button
++                                onClick={() => {
++                                  setActiveReplyId(null);
++                                  setReplyText("");
++                                }}
++                                className="px-2.5 py-1 rounded bg-transparent border border-white/10 hover:bg-white/5 text-[9px] font-mono text-gray-400 uppercase transition cursor-pointer"
++                              >
++                                Abort
++                              </button>
++                              <button
++                                onClick={() => handlePostReply(comment.id)}
++                                disabled={postingReply || !replyText.trim()}
++                                className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-[9px] font-mono text-white uppercase transition cursor-pointer"
++                              >
++                                {postingReply ? "Sending..." : "Transmit"}
++                              </button>
++                            </div>
++                          </div>
++                        </div>
++                      )}
++
++                      {/* Nested Replies list */}
++                      {comment.replies && comment.replies.length > 0 && (
++                        <div className="ml-13 pl-4 border-l border-indigo-500/20 space-y-3">
++                          {comment.replies.map((reply: any) => {
++                            const rName = reply.user?.displayName || reply.user?.username || "Reader";
++                            return (
++                              <div key={reply.id} className="p-3 rounded-lg bg-slate-950/40 border border-white/5 flex gap-3 text-left">
++                                <div className="w-7 h-7 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 select-none">
++                                  {rName.slice(0, 2).toUpperCase()}
++                                </div>
++                                <div className="space-y-1 flex-1">
++                                  <div className="flex items-center gap-2">
++                                    <span className="text-[11px] font-hud font-semibold text-indigo-400/80">{rName}</span>
++                                    <span className="text-[9px] text-gray-600 font-mono">
++                                      {new Date(reply.createdAt).toLocaleDateString()}
++                                    </span>
++                                  </div>
++                                  <p className="text-xs text-gray-300 leading-relaxed font-sans">{reply.body}</p>
++                                </div>
++                              </div>
++                            );
++                          })}
++                        </div>
++                      )}
+                     </div>
+                   );
+                 })}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -10,5 +10,13 @@
+   - `[x]` Re-design Display Controls popup to remove color themes and add Content Box Width range slider
+   - `[x]` Re-structure right-side HUD panel to render exactly three buttons, with the third button as `<ThemeSwitcher compact variant="cinematic" />`
+ - `[x]` Verify Next.js build compilation
+-- `[x]` Document changes in walkthrough.md
++- `[x]` Update Comment model in `schema.prisma` with parentId self-referential relations
++- `[x]` Run database migrations using `npx prisma migrate dev` (fixed order & drift)
++- `[x]` Regenerate Prisma Client and seed the database
++- `[x]` Update `app/api/comments/route.ts` API route for comments nesting and reply flattening
++- `[x]` Redesign classic reader comment UI in `components/reader-layouts/classic.tsx` with indentations and inline replies
++- `[x]` Redesign cinematic reader comment UI in `components/reader-layouts/cinematic.tsx` with nested panels and inline transmissions
++- `[x]` Verify Next.js build compilation
++- `[x]` Update walkthrough.md and plan artifacts
++
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -98,4 +98,39 @@
+ 
+ ### Verification Results
+ - **Next.js Production Build**: Build compiled successfully with `npm run build` with zero errors. All theme states, layout variant switchers, and inline style adjustments pass validation.
++
++---
++
++## 9. Nested Comment Reply System & Redesigned Reader Comments Layouts
++We have implemented a nested two-layer comment reply system (parent comments and child replies) across the platform.
++
++### 1. Database Schema Updates
++- **[schema.prisma](file:///c:/Users/mande/Documents/Writer%20portfolio/prisma/schema.prisma)**:
++  - Added the self-referential `parentId` relation with cascade deletions to the `Comment` model:
++    ```prisma
++    parentId  String?
++    parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
++    replies   Comment[] @relation("CommentReplies")
++    ```
++  - Added an index on `parentId` for optimized query performance.
++  - Resolved database migration drift (where `Story.scheduledAt` was not in previous migrations) and successfully ran `npx prisma migrate dev --name add_comment_replies` to generate and apply the database updates.
++
++### 2. Comments API Nesting & Flattening
++- **[route.ts](file:///c:/Users/mande/Documents/Writer%20portfolio/app/api/comments/route.ts)**:
++  - Extended Zod validation schema to accept `parentId` in the request body.
++  - Modified the `GET` route to only return top-level comments (where `parentId: null`), including child `replies` ordered chronologically (`createdAt: "asc"`) along with user metadata.
++  - Updated the `POST` route to resolve and flatten replies: if a user replies to a comment that is already a reply, the system automatically sets the new comment's `parentId` to the top-level parent ID to enforce a clean, flat two-layer comment hierarchy.
++
++### 3. Redesigned Classic Comments Section
++- **[classic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/classic.tsx)**:
++  - Redesigned comment cards with nested reply threads.
++  - Added a collapsible, user-friendly inline reply form that expands directly under each parent comment card.
++  - Styled replies with indented left-border connector lines, smaller avatars, and a dedicated response workflow.
++
++### 4. Redesigned Cinematic Comments Sanctuary
++- **[cinematic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/cinematic.tsx)**:
++  - Redesigned comment cards to fit the cyberpunk sci-fi console aesthetic.
++  - Added circular node indicators and a minimalist hud-themed `[ Reply ]` text link button.
++  - Integrated a sleek, dark inline transmission box with dynamic animation triggers (`animate-in fade-in`).
++  - Rendered nested replies inside dark translucent background boxes (`bg-slate-950/40`) with left borders and customized sub-avatar badges.
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1432,7 +1432,7 @@
+                               }}
+                               className="text-[9px] font-mono tracking-wider text-indigo-400 uppercase cursor-pointer hover:underline flex items-center gap-1.5"
+                             >
+-                              <MessageCircle size={10} />
++                              <MessageSquare size={10} />
+                               [ Reply ]
+                             </button>
+                           </div>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -199,6 +199,10 @@
+   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+   const [replyText, setReplyText] = useState("");
+   const [postingReply, setPostingReply] = useState(false);
++  const [activeMenuCommentId, setActiveMenuCommentId] = useState<string | null>(null);
++  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
++  const [editText, setEditText] = useState("");
++  const [updatingComment, setUpdatingComment] = useState(false);
+ 
+   // Font family mapping
+   const fontClasses = {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -341,6 +341,52 @@
+     }
+   };
+ 
++  const handleDeleteComment = async (commentId: string) => {
++    if (!confirm("Are you sure you want to delete this comment?")) return;
++    try {
++      const res = await fetch(`/api/comments/${commentId}`, {
++        method: "DELETE"
++      });
++      const body = await res.json();
++      if (res.ok) {
++        triggerNotification("Comment node purged successfully.");
++        if (activeChapter) fetchComments(activeChapter.id);
++      } else {
++        showToast(body.error?.message || "Failed to purge comment", "error");
++      }
++    } catch (err) {
++      showToast("Error purging comment", "error");
++    } finally {
++      setActiveMenuCommentId(null);
++    }
++  };
++
++  const handleUpdateComment = async (commentId: string) => {
++    if (!editText.trim()) return;
++    setUpdatingComment(true);
++    try {
++      const res = await fetch(`/api/comments/${commentId}`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ body: editText.trim() })
++      });
++      const body = await res.json();
++      if (res.ok) {
++        triggerNotification("Comment node synchronized successfully.");
++        setEditingCommentId(null);
++        setEditText("");
++        if (activeChapter) fetchComments(activeChapter.id);
++      } else {
++        showToast(body.error?.message || "Failed to update comment", "error");
++      }
++    } catch (err) {
++      showToast("Error updating comment", "error");
++    } finally {
++      setUpdatingComment(false);
++      setActiveMenuCommentId(null);
++    }
++  };
++
+   // Secure content loader
+   const loadChapterContent = useCallback(async (chapterId: string) => {
+     if (chapterContents[chapterId]?.length) {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -5,7 +5,7 @@
+ import { 
+   Terminal, Sparkles, X, Lock, ShieldCheck, 
+   BookOpen, Compass, Award, AlertCircle, Settings2, Type, 
+-  MoveHorizontal, ThumbsUp, Bookmark, Share2, ChevronLeft, 
++  MoveHorizontal, MoreHorizontal, ThumbsUp, Bookmark, Share2, ChevronLeft, 
+   ChevronRight, Volume2, Moon, Sun, MessageSquare, Send, CheckCircle2,
+   Users, Globe2, BookOpenText, Eye, Flame, Brain, ShieldAlert,
+   CalendarRange, HelpCircle, Heart, Star, BookMarked, ArrowLeft,
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1455,7 +1455,7 @@
+                 {comments.map((comment) => {
+                   const dispName = comment.user.displayName || comment.user.username || "Reader";
+                   return (
+-                    <div key={comment.id} className="p-4 rounded-xl bg-slate-900/30 border border-white/5 flex flex-col gap-3 text-left">
++                    <div key={comment.id} className="group p-4 rounded-xl bg-slate-900/30 border border-white/5 flex flex-col gap-3 text-left">
+                       <div className="flex gap-4">
+                         <div className="w-9 h-9 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center font-bold text-gray-400 text-xs shrink-0 select-none">
+                           {dispName.slice(0, 2).toUpperCase()}
+@@ -1462,11 +1462,85 @@
+-                        <div className="space-y-1.5 flex-1">
+-                          <div className="flex items-center gap-2">
+-                            <span className="text-xs font-hud font-semibold text-indigo-300">{dispName}</span>
+-                            <span className="text-[10px] text-gray-500 font-mono">
+-                              {new Date(comment.createdAt).toLocaleDateString()}
+-                            </span>
+-                          </div>
+-                          <p className="text-xs text-gray-300 leading-relaxed font-sans">{comment.body}</p>
++                        <div className="space-y-1.5 flex-1 relative">
++                          <div className="flex items-center justify-between gap-2">
++                            <div className="flex items-center gap-2">
++                              <span className="text-xs font-hud font-semibold text-indigo-300">{dispName}</span>
++                              <span className="text-[10px] text-gray-500 font-mono">
++                                {new Date(comment.createdAt).toLocaleDateString()}
++                              </span>
++                            </div>
++
++                            {/* Three dots dropdown */}
++                            <div className="relative">
++                              <button
++                                onClick={() => {
++                                  if (activeMenuCommentId === comment.id) {
++                                    setActiveMenuCommentId(null);
++                                  } else {
++                                    setActiveMenuCommentId(comment.id);
++                                  }
++                                }}
++                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
++                              >
++                                <MoreHorizontal size={12} />
++                              </button>
++
++                              {activeMenuCommentId === comment.id && (
++                                <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
++                                  {currentUser && currentUser.id === comment.userId && (
++                                    <button
++                                      onClick={() => {
++                                        setEditingCommentId(comment.id);
++                                        setEditText(comment.body);
++                                        setActiveMenuCommentId(null);
++                                      }}
++                                      className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase"
++                                    >
++                                      Edit
++                                    </button>
++                                  )}
++                                  {currentUser && (currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
++                                    <button
++                                      onClick={() => handleDeleteComment(comment.id)}
++                                      className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase"
++                                    >
++                                      Delete
++                                    </button>
++                                  )}
++                                </div>
++                              )}
++                            </div>
++                          </div>
++
++                          {/* Comment body or edit box */}
++                          {editingCommentId === comment.id ? (
++                            <div className="mt-2 space-y-2">
++                              <textarea
++                                value={editText}
++                                onChange={(e) => setEditText(e.target.value)}
++                                rows={2}
++                                className="w-full bg-slate-950/80 border border-white/10 rounded-lg p-2.5 text-xs text-gray-200 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
++                              />
++                              <div className="flex gap-2 justify-end">
++                                <button
++                                  onClick={() => {
++                                    setEditingCommentId(null);
++                                    setEditText("");
++                                  }}
++                                  className="px-2 py-1 rounded bg-transparent border border-white/10 hover:bg-white/5 text-[9px] font-mono text-gray-400 uppercase transition cursor-pointer"
++                                >
++                                  Abort
++                                </button>
++                                <button
++                                  onClick={() => handleUpdateComment(comment.id)}
++                                  disabled={updatingComment || !editText.trim()}
++                                  className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-[9px] font-mono text-white uppercase transition cursor-pointer"
++                                >
++                                  {updatingComment ? "Saving..." : "Save"}
++                                </button>
++                              </div>
++                            </div>
++                          ) : (
++                            <p className="text-xs text-gray-300 leading-relaxed font-sans">{comment.body}</p>
++                          )}
+ 
+                           {/* Reply trigger button */}
+                           <div className="flex items-center gap-4 mt-2">
+@@ -1527,18 +1527,92 @@
+                           {comment.replies.map((reply: any) => {
+                             const rName = reply.user?.displayName || reply.user?.username || "Reader";
+                             return (
+-                              <div key={reply.id} className="p-3 rounded-lg bg-slate-950/40 border border-white/5 flex gap-3 text-left">
++                              <div key={reply.id} className="group/reply p-3 rounded-lg bg-slate-950/40 border border-white/5 flex gap-3 text-left">
+                                 <div className="w-7 h-7 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 select-none">
+                                   {rName.slice(0, 2).toUpperCase()}
+                                 </div>
+-                                <div className="space-y-1 flex-1">
+-                                  <div className="flex items-center gap-2">
+-                                    <span className="text-[11px] font-hud font-semibold text-indigo-400/80">{rName}</span>
+-                                    <span className="text-[9px] text-gray-600 font-mono">
+-                                      {new Date(reply.createdAt).toLocaleDateString()}
+-                                    </span>
++                                <div className="space-y-1 flex-1 relative">
++                                  <div className="flex items-center justify-between gap-2">
++                                    <div className="flex items-center gap-2">
++                                      <span className="text-[11px] font-hud font-semibold text-indigo-400/80">{rName}</span>
++                                      <span className="text-[9px] text-gray-600 font-mono">
++                                        {new Date(reply.createdAt).toLocaleDateString()}
++                                      </span>
++                                    </div>
++
++                                    {/* Reply three dots dropdown */}
++                                    <div className="relative">
++                                      <button
++                                        onClick={() => {
++                                          if (activeMenuCommentId === reply.id) {
++                                            setActiveMenuCommentId(null);
++                                          } else {
++                                            setActiveMenuCommentId(reply.id);
++                                          }
++                                        }}
++                                        className="opacity-0 group-hover/reply:opacity-100 p-0.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
++                                      >
++                                        <MoreHorizontal size={10} />
++                                      </button>
++
++                                      {activeMenuCommentId === reply.id && (
++                                        <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
++                                          {currentUser && currentUser.id === reply.userId && (
++                                            <button
++                                              onClick={() => {
++                                                setEditingCommentId(reply.id);
++                                                setEditText(reply.body);
++                                                setActiveMenuCommentId(null);
++                                              }}
++                                              className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase"
++                                            >
++                                              Edit
++                                            </button>
++                                          )}
++                                          {currentUser && (currentUser.id === reply.userId || currentUser.role === "ADMIN") && (
++                                            <button
++                                              onClick={() => handleDeleteComment(reply.id)}
++                                              className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase"
++                                            >
++                                              Delete
++                                            </button>
++                                          )}
++                                        </div>
++                                      )}
++                                    </div>
+                                   </div>
+-                                  <p className="text-xs text-gray-300 leading-relaxed font-sans">{reply.body}</p>
++
++                                  {/* Reply Edit form or body */}
++                                  {editingCommentId === reply.id ? (
++                                    <div className="mt-2 space-y-2">
++                                      <textarea
++                                        value={editText}
++                                        onChange={(e) => setEditText(e.target.value)}
++                                        rows={2}
++                                        className="w-full bg-slate-950/80 border border-white/10 rounded-lg p-2.5 text-xs text-gray-200 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
++                                      />
++                                      <div className="flex gap-2 justify-end">
++                                        <button
++                                          onClick={() => {
++                                            setEditingCommentId(null);
++                                            setEditText("");
++                                          }}
++                                          className="px-2 py-1 rounded bg-transparent border border-white/10 hover:bg-white/5 text-[9px] font-mono text-gray-400 uppercase transition cursor-pointer"
++                                        >
++                                          Abort
++                                        </button>
++                                        <button
++                                          onClick={() => handleUpdateComment(reply.id)}
++                                          disabled={updatingComment || !editText.trim()}
++                                          className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-[9px] font-mono text-white uppercase transition cursor-pointer"
++                                        >
++                                          {updatingComment ? "Saving..." : "Save"}
++                                        </button>
++                                      </div>
++                                    </div>
++                                  ) : (
++                                    <p className="text-xs text-gray-300 leading-relaxed font-sans">{reply.body}</p>
++                                  )}
+                                 </div>
+                               </div>
+                             );
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -127,7 +127,7 @@
+ 
+ const staggerItem = {
+   hidden: { opacity: 0, y: 12 },
+-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
++  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } }
+ };
+ 
+ /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -96,7 +96,7 @@
+   visible: (delay: number = 0) => ({
+     opacity: 1,
+     y: 0,
+-    transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }
++    transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const }
+   })
+ };
+ 
+@@ -112,7 +112,7 @@
+   visible: (delay: number = 0) => ({
+     opacity: 1,
+     scale: 1,
+-    transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }
++    transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as const }
+   })
+ };
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -18,5 +18,14 @@
+ - `[x]` Redesign cinematic reader comment UI in `components/reader-layouts/cinematic.tsx` with nested panels and inline transmissions
+ - `[x]` Verify Next.js build compilation
+ - `[x]` Update walkthrough.md and plan artifacts
++- `[ ]` Implement comment & chapter liking and single input reply flow:
++  - `[ ]` Add `chapterLikesCount` state & API integration in `classic.tsx` and `cinematic.tsx`
++  - `[ ]` Add `handleLikeComment` function and UI buttons/counts in both layouts
++  - `[ ]` Hide comment three-dots menu for accounts other than author/admin
++  - `[ ]` Route replies through the main comment input box (using `activeReplyId` & `replyToUser` state)
++  - `[ ]` Float comment input box in reply mode at the bottom of the viewport with bottom border only
++  - `[ ]` Implement auto-expanding textarea height for the main input box
++  - `[ ]` Verify Next.js build compilation and test all features
++
+ 
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -214,6 +214,9 @@
+   const [scrollProgress, setScrollProgress] = useState(0);
+   const [showSettings, setShowSettings] = useState(false);
+   const [liked, setLiked] = useState(false);
++  const [chapterLikesCount, setChapterLikesCount] = useState(0);
++  const [replyToUser, setReplyToUser] = useState<string | null>(null);
++  const textareaRef = useRef<HTMLTextAreaElement>(null);
+   const [favorite, setFavorite] = useState(false);
+   const [isNarrating, setIsNarrating] = useState(false);
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -488,6 +488,15 @@
+     }
+   };
+ 
++  useEffect(() => {
++    const textarea = textareaRef.current;
++    if (textarea) {
++      textarea.style.height = "auto";
++      const nextHeight = Math.min(textarea.scrollHeight, 180);
++      textarea.style.height = `${nextHeight}px`;
++    }
++  }, [commentText, activeReplyId]);
++
+   /* â”€â”€ Sync likes / reading history on chapter change â”€â”€ */
+   useEffect(() => {
+     if (activeChapter) {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -505,12 +505,15 @@
+           const res = await fetch(`/api/ratings?storyId=${story.id}&chapterId=${activeChapter.id}`);
+           const body = await res.json();
+           if (res.ok && body.data) {
+-            setLiked(true);
++            setLiked(!!body.data.userRating);
++            setChapterLikesCount(body.data.likesCount || 0);
+           } else {
+             setLiked(false);
++            setChapterLikesCount(0);
+           }
+         } catch {
+           setLiked(false);
++          setChapterLikesCount(0);
+         }
+       };
+       fetchLikedStatus();
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -569,9 +569,11 @@
+     if (!activeChapter) return;
+     const nextState = !liked;
+     setLiked(nextState);
+-    try {
++    setChapterLikesCount(prev => Math.max(0, prev + (nextState ? 1 : -1)));
++    try {
++      let res;
+       if (nextState) {
+-        await fetch("/api/ratings", {
++        res = await fetch("/api/ratings", {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ storyId: story.id, chapterId: activeChapter.id, value: 5 })
+@@ -578,7 +578,22 @@
+-        triggerNotification(`Liked Chapter ${activeChapter.number}`);
+-      } else {
+-        await fetch(`/api/ratings?storyId=${story.id}&chapterId=${activeChapter.id}`, { method: "DELETE" });
+-        triggerNotification(`Unliked Chapter ${activeChapter.number}`);
++        if (res.ok) {
++          triggerNotification(`Liked Chapter ${activeChapter.number}`);
++        }
++      } else {
++        res = await fetch(`/api/ratings?storyId=${story.id}&chapterId=${activeChapter.id}`, {
++          method: "DELETE"
++        });
++        if (res.ok) {
++          triggerNotification(`Unliked Chapter ${activeChapter.number}`);
++        }
++      }
++      if (res.ok) {
++        const body = await res.json();
++        if (body.data && typeof body.data.likesCount === "number") {
++          setChapterLikesCount(body.data.likesCount);
++        }
++      } else {
++        setLiked(!nextState);
++        setChapterLikesCount(prev => Math.max(0, prev + (nextState ? -1 : 1)));
+       }
+     } catch (err) {
+       console.error("Error toggling like status", err);
+@@ -585,3 +585,4 @@
++      setChapterLikesCount(prev => Math.max(0, prev + (nextState ? -1 : 1)));
+     }
+   };
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -320,9 +320,8 @@
+     }
+   }, [story.id]);
+ 
+-  /* â”€â”€ Post comment â”€â”€ */
+-  const handlePostComment = async (e: React.FormEvent) => {
+-    e.preventDefault();
++  const handlePostComment = async (e?: React.FormEvent) => {
++    if (e) e.preventDefault();
+     if (!commentText.trim() || !activeChapter) return;
+     setPostingComment(true);
+     try {
+@@ -331,6 +331,7 @@
+         body: JSON.stringify({
+           storyId: story.id,
+           chapterId: activeChapter.id,
++          parentId: activeReplyId || null,
+           body: commentText.trim()
+         })
+       });
+@@ -337,44 +337,81 @@
+       if (res.ok) {
+         setCommentText("");
+-        fetchComments(activeChapter.id);
+-        triggerNotification("Comment posted successfully.");
+-      } else {
+-        showToast(body.error?.message || "Failed to post comment", "error");
+-      }
+-    } catch (err) {
+-      showToast("Error posting comment", "error");
+-    } finally {
+-      setPostingComment(false);
+-    }
+-  };
+-
+-  const handlePostReply = async (parentId: string) => {
+-    if (!replyText.trim() || !activeChapter) return;
+-    setPostingReply(true);
+-    try {
+-      const res = await fetch("/api/comments", {
+-        method: "POST",
+-        headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({
+-          storyId: story.id,
+-          chapterId: activeChapter.id,
+-          parentId,
+-          body: replyText.trim()
+-        })
+-      });
+-      const body = await res.json();
+-      if (res.ok) {
+-        setReplyText("");
+         setActiveReplyId(null);
+-        fetchComments(activeChapter.id);
+-        triggerNotification("Reply posted successfully.");
+-      } else {
+-        showToast(body.error?.message || "Failed to post reply", "error");
+-      }
+-    } catch (err) {
+-      showToast("Error posting reply", "error");
+-    } finally {
+-      setPostingReply(false);
++        setReplyToUser(null);
++        fetchComments(activeChapter.id);
++        triggerNotification(activeReplyId ? "Reply posted successfully." : "Comment posted successfully.");
++      } else {
++        showToast(body.error?.message || (activeReplyId ? "Failed to post reply" : "Failed to post comment"), "error");
++      }
++    } catch (err) {
++      showToast(activeReplyId ? "Error posting reply" : "Error posting comment", "error");
++    } finally {
++      setPostingComment(false);
++    }
++  };
++
++  const handleLikeComment = async (commentId: string, isLiked: boolean) => {
++    if (!currentUser) {
++      showToast("Please log in to like comments", "error");
++      return;
++    }
++
++    const updateLikesInTree = (list: any[]): any[] => {
++      return list.map((c) => {
++        if (c.id === commentId) {
++          const updatedLikes = isLiked
++            ? [...(c.likes || []), { userId: currentUser.id }]
++            : (c.likes || []).filter((l: any) => l.userId !== currentUser.id);
++          return { ...c, likes: updatedLikes };
++        }
++        if (c.replies && c.replies.length > 0) {
++          return { ...c, replies: updateLikesInTree(c.replies) };
++        }
++        return c;
++      });
++    };
++
++    setComments((prev) => updateLikesInTree(prev));
++
++    try {
++      const res = await fetch(`/api/comments/${commentId}/like`, {
++        method: isLiked ? "POST" : "DELETE"
++      });
++      if (!res.ok) {
++        const revertLikesInTree = (list: any[]): any[] => {
++          return list.map((c) => {
++            if (c.id === commentId) {
++              const updatedLikes = !isLiked
++                ? [...(c.likes || []), { userId: currentUser.id }]
++                : (c.likes || []).filter((l: any) => l.userId !== currentUser.id);
++              return { ...c, likes: updatedLikes };
++            }
++            if (c.replies && c.replies.length > 0) {
++              return { ...c, replies: revertLikesInTree(c.replies) };
++            }
++            return c;
++          });
++        };
++        setComments((prev) => revertLikesInTree(prev));
++        showToast("Failed to update comment like status", "error");
++      }
++    } catch (err) {
++      console.error("Error liking comment", err);
++      const revertLikesInTree = (list: any[]): any[] => {
++        return list.map((c) => {
++          if (c.id === commentId) {
++            const updatedLikes = !isLiked
++              ? [...(c.likes || []), { userId: currentUser.id }]
++              : (c.likes || []).filter((l: any) => l.userId !== currentUser.id);
++            return { ...c, likes: updatedLikes };
++          }
++          if (c.replies && c.replies.length > 0) {
++            return { ...c, replies: revertLikesInTree(c.replies) };
++          }
++          return c;
++        });
++      };
++      setComments((prev) => revertLikesInTree(prev));
+     }
+   };
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1275,7 +1275,7 @@
+                           className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-medium border transition cursor-pointer ${liked ? "bg-rose-500/10 text-rose-400 border-rose-500/25" : "bg-black/20 text-gray-400 border-white/5 hover:text-gray-200"}`}
+                         >
+                           <ThumbsUp size={12} className={liked ? "fill-rose-400" : ""} />
+-                          <span>Like</span>
++                          <span>Like ({chapterLikesCount})</span>
+                         </button>
+                         <button
+                           onClick={() => setFavorite(f => !f)}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1502,16 +1502,43 @@
+               <div className="h-1 w-12 bg-indigo-500 rounded-full" />
+             </motion.div>
+ 
+-            <form onSubmit={handlePostComment} className="mb-8 p-4 rounded-xl bg-white/3 backdrop-blur-md border border-white/5 flex flex-col gap-3">
++            <form
++              onSubmit={handlePostComment}
++              className={
++                activeReplyId
++                  ? "fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50 bg-[#0d0f17]/95 backdrop-blur-md p-4 rounded-none border-b-2 border-indigo-500 border-x-0 border-t-0 flex flex-col gap-3 shadow-[0_10px_50px_rgba(0,0,0,0.5)] transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
++                  : "mb-8 p-4 rounded-xl bg-white/3 backdrop-blur-md border border-white/5 flex flex-col gap-3"
++              }
++            >
++              {activeReplyId && (
++                <div className="flex items-center justify-between px-3 py-1 bg-indigo-500/10 border-b border-indigo-500/20 text-[10px] font-mono tracking-wider text-indigo-400 uppercase rounded-t-lg">
++                  <span>Replying to @{replyToUser}</span>
++                  <button
++                    type="button"
++                    onClick={() => {
++                      setActiveReplyId(null);
++                      setReplyToUser(null);
++                      setCommentText("");
++                    }}
++                    className="p-1 hover:bg-indigo-500/25 rounded-full transition-colors cursor-pointer"
++                  >
++                    <X size={12} />
++                  </button>
++                </div>
++              )}
+               <textarea
++                ref={textareaRef}
+                 value={commentText}
+                 onChange={(e) => setCommentText(e.target.value)}
+-                placeholder="Share your thoughts on this chapter..."
+-                rows={3}
+-                className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none"
++                placeholder={activeReplyId ? "Write a transmission reply..." : "Share your thoughts on this chapter..."}
++                rows={1}
++                className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
++                style={{ height: "auto" }}
+               />
+               <div className="flex items-center justify-between border-t border-white/5 pt-3">
+-                <span className="text-[10px] font-mono text-gray-500">HTML tags filtered.</span>
++                <span className="text-[10px] font-mono text-gray-500">
++                  {activeReplyId ? "Secure transmission reply mode." : "HTML tags filtered."}
++                </span>
+                 <button
+                   type="submit"
+                   disabled={postingComment || !commentText.trim()}
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1570,24 +1570,26 @@
+                                 {new Date(comment.createdAt).toLocaleDateString()}
+                               </span>
+                             </div>
+-                            <div className="relative">
+-                              <button
+-                                onClick={() => setActiveMenuCommentId(activeMenuCommentId === comment.id ? null : comment.id)}
+-                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
+-                              >
+-                                <MoreHorizontal size={12} />
+-                              </button>
+-                              {activeMenuCommentId === comment.id && (
+-                                <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
+-                                  {currentUser && currentUser.id === comment.userId && (
+-                                    <button onClick={() => { setEditingCommentId(comment.id); setEditText(comment.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
+-                                  )}
+-                                  {currentUser && (currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
+-                                    <button onClick={() => handleDeleteComment(comment.id)} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase">Delete</button>
+-                                  )}
+-                                </div>
+-                              )}
+-                            </div>
++                            {currentUser && (currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
++                              <div className="relative">
++                                <button
++                                  onClick={() => setActiveMenuCommentId(activeMenuCommentId === comment.id ? null : comment.id)}
++                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
++                                >
++                                  <MoreHorizontal size={12} />
++                                </button>
++                                {activeMenuCommentId === comment.id && (
++                                  <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
++                                    {currentUser.id === comment.userId && (
++                                      <button onClick={() => { setEditingCommentId(comment.id); setEditText(comment.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
++                                    )}
++                                    {(currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
++                                      <button onClick={() => handleDeleteComment(comment.id)} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase">Delete</button>
++                                    )}
++                                  </div>
++                                )}
++                              </div>
++                            )}
+                           </div>
+ 
+                           {editingCommentId === comment.id ? (
+@@ -1602,26 +1602,39 @@
+                           )}
+ 
+                           <div className="flex items-center gap-4 mt-2">
+-                            <button onClick={() => { setActiveReplyId(activeReplyId === comment.id ? null : comment.id); setReplyText(""); }} className="text-[9px] font-mono tracking-wider text-indigo-400 uppercase cursor-pointer hover:underline flex items-center gap-1.5">
++                            <button
++                              onClick={() => {
++                                if (activeReplyId === comment.id) {
++                                  setActiveReplyId(null);
++                                  setReplyToUser(null);
++                                } else {
++                                  setActiveReplyId(comment.id);
++                                  setReplyToUser(comment.user?.displayName || comment.user?.username || "Reader");
++                                  setCommentText("");
++                                }
++                              }}
++                              className="text-[9px] font-mono tracking-wider text-indigo-400 uppercase cursor-pointer hover:underline flex items-center gap-1.5"
++                            >
+                               <MessageSquare size={10} />
+                               Reply
+                             </button>
+-                          </div>
+-                        </div>
+-                      </div>
+-
+-                      {activeReplyId === comment.id && (
+-                        <div className="ml-12 p-3 rounded-lg bg-slate-950/80 border border-white/10 flex flex-col gap-2 animate-in fade-in duration-200">
+-                          <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write a reply..." rows={2} className="w-full bg-transparent border-0 resize-none text-xs text-gray-200 placeholder-gray-600 focus:ring-0 focus:outline-none" />
+-                          <div className="flex items-center justify-between border-t border-white/5 pt-2">
+-                            <span className="text-[8px] font-mono text-gray-600 uppercase">Reply</span>
+-                            <div className="flex gap-2">
+-                              <button onClick={() => { setActiveReplyId(null); setReplyText(""); }} className="px-2.5 py-1 rounded bg-transparent border border-white/10 hover:bg-white/5 text-[9px] font-mono text-gray-400 uppercase transition cursor-pointer">Cancel</button>
+-                              <button onClick={() => handlePostReply(comment.id)} disabled={postingReply || !replyText.trim()} className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-[9px] font-mono text-white uppercase transition cursor-pointer">{postingReply ? "Sending..." : "Reply"}</button>
+-                            </div>
+-                          </div>
+-                        </div>
+-                      )}
++                            <button
++                              onClick={() => {
++                                const isLiked = comment.likes?.some((l: any) => l.userId === currentUser?.id);
++                                handleLikeComment(comment.id, !isLiked);
++                              }}
++                              className={`text-[9px] font-mono tracking-wider uppercase cursor-pointer transition flex items-center gap-1.5 ${
++                                comment.likes?.some((l: any) => l.userId === currentUser?.id)
++                                  ? "text-rose-400 hover:text-rose-300"
++                                  : "text-gray-500 hover:text-gray-300"
++                              }`}
++                            >
++                              <ThumbsUp size={10} className={comment.likes?.some((l: any) => l.userId === currentUser?.id) ? "fill-rose-400" : ""} />
++                              <span>Like ({comment.likes?.length || 0})</span>
++                            </button>
++                          </div>
++                        </div>
++                      </div>
+ 
+                       {comment.replies && comment.replies.length > 0 && (
+                         <div className="ml-12 pl-4 border-l border-indigo-500/20 space-y-3">
+@@ -1637,11 +1637,6 @@
+                                       <span className="text-[11px] font-semibold text-indigo-400/80">{rName}</span>
+                                       <span className="text-[9px] text-gray-600 font-mono">{new Date(reply.createdAt).toLocaleDateString()}</span>
+                                     </div>
+-                                    <div className="relative">
+-                                      <button onClick={() => setActiveMenuCommentId(activeMenuCommentId === reply.id ? null : reply.id)} className="opacity-0 group-hover/reply:opacity-100 p-0.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer">
+-                                        <MoreHorizontal size={10} />
+-                                      </button>
+-                                      {activeMenuCommentId === reply.id && (
+                                         <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
+                                           {currentUser && currentUser.id === reply.userId && (
+                                             <button onClick={() => { setEditingCommentId(reply.id); setEditText(reply.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1654,16 +1654,23 @@
+                                       <span className="text-[11px] font-semibold text-indigo-400/80">{rName}</span>
+                                       <span className="text-[9px] text-gray-600 font-mono">{new Date(reply.createdAt).toLocaleDateString()}</span>
+                                     </div>
+-                                        <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
+-                                          {currentUser && currentUser.id === reply.userId && (
+-                                            <button onClick={() => { setEditingCommentId(reply.id); setEditText(reply.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
+-                                          )}
+-                                          {currentUser && (currentUser.id === reply.userId || currentUser.role === "ADMIN") && (
+-                                            <button onClick={() => handleDeleteComment(reply.id)} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase">Delete</button>
+-                                          )}
+-                                        </div>
+-                                      )}
+-                                    </div>
++                                    {currentUser && (currentUser.id === reply.userId || currentUser.role === "ADMIN") && (
++                                      <div className="relative">
++                                        <button onClick={() => setActiveMenuCommentId(activeMenuCommentId === reply.id ? null : reply.id)} className="opacity-0 group-hover/reply:opacity-100 p-0.5 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer">
++                                          <MoreHorizontal size={10} />
++                                        </button>
++                                        {activeMenuCommentId === reply.id && (
++                                          <div className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
++                                            {currentUser.id === reply.userId && (
++                                              <button onClick={() => { setEditingCommentId(reply.id); setEditText(reply.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
++                                            )}
++                                            {(currentUser.id === reply.userId || currentUser.role === "ADMIN") && (
++                                              <button onClick={() => handleDeleteComment(reply.id)} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase">Delete</button>
++                                            )}
++                                          </div>
++                                        )}
++                                      </div>
++                                    )}
+                                   </div>
+                                   {editingCommentId === reply.id ? (
+                                     <div className="mt-2 space-y-2">
+@@ -1673,7 +1673,41 @@
+                                       </div>
+                                     </div>
+                                   ) : (
+-                                    <p className="text-xs text-gray-300 leading-relaxed font-sans">{reply.body}</p>
++                                    <>
++                                      <p className="text-xs text-gray-300 leading-relaxed font-sans">{reply.body}</p>
++                                      <div className="flex items-center gap-4 mt-2">
++                                        <button
++                                          onClick={() => {
++                                            if (activeReplyId === reply.id) {
++                                              setActiveReplyId(null);
++                                              setReplyToUser(null);
++                                            } else {
++                                              setActiveReplyId(reply.parentId || reply.id);
++                                              setReplyToUser(reply.user?.displayName || reply.user?.username || "Reader");
++                                              setCommentText("");
++                                            }
++                                          }}
++                                          className="text-[9px] font-mono tracking-wider text-indigo-400 uppercase cursor-pointer hover:underline flex items-center gap-1.5"
++                                        >
++                                          <MessageSquare size={10} />
++                                          Reply
++                                        </button>
++                                        <button
++                                          onClick={() => {
++                                            const isLiked = reply.likes?.some((l: any) => l.userId === currentUser?.id);
++                                            handleLikeComment(reply.id, !isLiked);
++                                          }}
++                                          className={`text-[9px] font-mono tracking-wider uppercase cursor-pointer transition flex items-center gap-1.5 ${
++                                            reply.likes?.some((l: any) => l.userId === currentUser?.id)
++                                              ? "text-rose-400 hover:text-rose-300"
++                                              : "text-gray-500 hover:text-gray-300"
++                                          }`}
++                                        >
++                                          <ThumbsUp size={10} className={reply.likes?.some((l: any) => l.userId === currentUser?.id) ? "fill-rose-400" : ""} />
++                                          <span>Like ({reply.likes?.length || 0})</span>
++                                        </button>
++                                      </div>
++                                    </>
+                                   )}
+                                 </div>
+                               </div>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -18,14 +18,14 @@
+ - `[x]` Redesign cinematic reader comment UI in `components/reader-layouts/cinematic.tsx` with nested panels and inline transmissions
+ - `[x]` Verify Next.js build compilation
+ - `[x]` Update walkthrough.md and plan artifacts
+-- `[ ]` Implement comment & chapter liking and single input reply flow:
+-  - `[ ]` Add `chapterLikesCount` state & API integration in `classic.tsx` and `cinematic.tsx`
+-  - `[ ]` Add `handleLikeComment` function and UI buttons/counts in both layouts
+-  - `[ ]` Hide comment three-dots menu for accounts other than author/admin
+-  - `[ ]` Route replies through the main comment input box (using `activeReplyId` & `replyToUser` state)
+-  - `[ ]` Float comment input box in reply mode at the bottom of the viewport with bottom border only
+-  - `[ ]` Implement auto-expanding textarea height for the main input box
+-  - `[ ]` Verify Next.js build compilation and test all features
++- `[x]` Implement comment & chapter liking and single input reply flow:
++  - `[x]` Add `chapterLikesCount` state & API integration in `classic.tsx` and `cinematic.tsx`
++  - `[x]` Add `handleLikeComment` function and UI buttons/counts in both layouts
++  - `[x]` Hide comment three-dots menu for accounts other than author/admin
++  - `[x]` Route replies through the main comment input box (using `activeReplyId` & `replyToUser` state)
++  - `[x]` Float comment input box in reply mode at the bottom of the viewport with bottom border only
++  - `[x]` Implement auto-expanding textarea height for the main input box
++  - `[/]` Verify Next.js build compilation and test all features
+ 
+ 
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -134,4 +134,32 @@
+   - Added circular node indicators and a minimalist hud-themed `[ Reply ]` text link button.
+   - Integrated a sleek, dark inline transmission box with dynamic animation triggers (`animate-in fade-in`).
+   - Rendered nested replies inside dark translucent background boxes (`bg-slate-950/40`) with left borders and customized sub-avatar badges.
++
++---
++
++## 10. Comment Liking, Single Input Box Reply Flow & Viewport-Floating Controls
++We have implemented comment/reply liking, added chapter-level like counts, restricted comment modifications to authors/admins, routed all reply creations through the main comment input box, and designed the main input container to float dynamically at the viewport bottom in reply mode with auto-expanding height.
++
++### 1. Chapter and Comment Liking with Counts
++- **[classic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/classic.tsx)** & **[cinematic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/cinematic.tsx)**:
++  - Added `chapterLikesCount` state, populated on mount/chapter change from the `/api/ratings` endpoint.
++  - Updated the chapter Like/Heart button to show the count next to the button text: `Like ({chapterLikesCount})`.
++  - Added a `handleLikeComment` function which optimistically updates the comments tree state and triggers a `POST` or `DELETE` request to `/api/comments/[commentId]/like`.
++  - Added Heart/ThumbsUp icon buttons under both parent comments and child replies to show and toggle likes.
++
++### 2. Permission-Based Comment Control Dropdowns
++- **[classic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/classic.tsx)** & **[cinematic.tsx](file:///c:/Users/mande/Documents/Writer%20portfolio/components/reader-layouts/cinematic.tsx)**:
++  - Hides the three-dots edit/delete dropdown menu entirely if the comment or reply was written by another user and the current user is not an admin.
++  - Ensures standard users only see the menu on their own comments, while admins retain delete rights globally.
++
++### 3. Unified Reply Input Box Flow
++- Rerouted all comments and replies to share the main comment input box.
++- Clicking "Reply" sets the active parent comment ID (`activeReplyId`) and registers the target author's name (`replyToUser`), focusing and shifting the main input box.
++- Displays a dedicated "Replying to @username [X]" banner in the main input box to easily cancel and return to general comment mode.
++- Modified the submit API payload to map the verified `parentId` on request.
++
++### 4. Viewport-Floating & Auto-Growing Height Controls
++- If in reply mode, the main input box transitions to float at the bottom of the viewport using `fixed bottom-6 left-1/2 -translate-x-1/2` styling.
++- Styled the floating reply box with *only* a bottom border (`border-b-2 border-accent border-x-0 border-t-0 rounded-none`).
++- Configured a dynamic resize effect (`useRef` + `useEffect` on text change) to adjust height dynamically according to text content length, growing upwards.
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -217,6 +217,8 @@
+   const [chapterLikesCount, setChapterLikesCount] = useState(0);
+   const [replyToUser, setReplyToUser] = useState<string | null>(null);
+   const textareaRef = useRef<HTMLTextAreaElement>(null);
++  const commentsContainerRef = useRef<HTMLDivElement>(null);
++  const [isInputFloatingViewport, setIsInputFloatingViewport] = useState(false);
+   const [favorite, setFavorite] = useState(false);
+   const [isNarrating, setIsNarrating] = useState(false);
+ 
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -536,6 +536,34 @@
+     }
+   }, [commentText, activeReplyId]);
+ 
++  useEffect(() => {
++    const handleScroll = () => {
++      if (!activeReplyId || !commentsContainerRef.current) return;
++      const rect = commentsContainerRef.current.getBoundingClientRect();
++      const viewportHeight = window.innerHeight;
++      setIsInputFloatingViewport(rect.bottom > viewportHeight);
++    };
++
++    if (activeReplyId) {
++      window.addEventListener("scroll", handleScroll);
++      window.addEventListener("resize", handleScroll);
++      handleScroll();
++    }
++    return () => {
++      window.removeEventListener("scroll", handleScroll);
++      window.removeEventListener("resize", handleScroll);
++    };
++  }, [activeReplyId]);
++
++  useEffect(() => {
++    const handleGlobalClick = () => {
++      setActiveMenuCommentId(null);
++      setShowSettings(false);
++    };
++    document.addEventListener("click", handleGlobalClick);
++    return () => document.removeEventListener("click", handleGlobalClick);
++  }, []);
++
+   /* â”€â”€ Sync likes / reading history on chapter change â”€â”€ */
+   useEffect(() => {
+     if (activeChapter) {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1516,7 +1516,7 @@
+         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+             SECTION 7: COMMENTS
+             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+-        <section id="comments" className="relative py-24 px-4 md:px-8 border-b border-white/5">
++        <section id="comments" ref={commentsContainerRef} className="relative py-24 px-4 md:px-8 border-b border-white/5">
+           <div className="max-w-3xl mx-auto text-left">
+             <motion.div
+               className="mb-10 space-y-3"
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1532,53 +1532,30 @@
+               <div className="h-1 w-12 bg-indigo-500 rounded-full" />
+             </motion.div>
+ 
+-            <form
+-              onSubmit={handlePostComment}
+-              className={
+-                activeReplyId
+-                  ? "fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50 bg-[#0d0f17]/95 backdrop-blur-md p-4 rounded-none border-b-2 border-indigo-500 border-x-0 border-t-0 flex flex-col gap-3 shadow-[0_10px_50px_rgba(0,0,0,0.5)] transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
+-                  : "mb-8 p-4 rounded-xl bg-white/3 backdrop-blur-md border border-white/5 flex flex-col gap-3"
+-              }
+-            >
+-              {activeReplyId && (
+-                <div className="flex items-center justify-between px-3 py-1 bg-indigo-500/10 border-b border-indigo-500/20 text-[10px] font-mono tracking-wider text-indigo-400 uppercase rounded-t-lg">
+-                  <span>Replying to @{replyToUser}</span>
++            {activeReplyId === null && (
++              <form onSubmit={handlePostComment} className="mb-8 p-4 rounded-xl bg-white/3 backdrop-blur-md border border-white/5 flex flex-col gap-3">
++                <textarea
++                  ref={textareaRef}
++                  value={commentText}
++                  onChange={(e) => setCommentText(e.target.value)}
++                  placeholder="Share your thoughts on this chapter..."
++                  rows={1}
++                  className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
++                  style={{ height: "auto" }}
++                />
++                <div className="flex items-center justify-between border-t border-white/5 pt-3">
++                  <span className="text-[10px] font-mono text-gray-500">HTML tags filtered.</span>
+                   <button
+-                    type="button"
+-                    onClick={() => {
+-                      setActiveReplyId(null);
+-                      setReplyToUser(null);
+-                      setCommentText("");
+-                    }}
+-                    className="p-1 hover:bg-indigo-500/25 rounded-full transition-colors cursor-pointer"
+-                  >
+-                    <X size={12} />
++                    type="submit"
++                    disabled={postingComment || !commentText.trim()}
++                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-xs font-semibold text-white flex items-center gap-1.5 transition cursor-pointer"
++                  >
++                    <Send size={11} />
++                    Post
+                   </button>
+                 </div>
+-              )}
+-              <textarea
+-                ref={textareaRef}
+-                value={commentText}
+-                onChange={(e) => setCommentText(e.target.value)}
+-                placeholder={activeReplyId ? "Write a transmission reply..." : "Share your thoughts on this chapter..."}
+-                rows={1}
+-                className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
+-                style={{ height: "auto" }}
+-              />
+-              <div className="flex items-center justify-between border-t border-white/5 pt-3">
+-                <span className="text-[10px] font-mono text-gray-500">
+-                  {activeReplyId ? "Secure transmission reply mode." : "HTML tags filtered."}
+-                </span>
+-                <button
+-                  type="submit"
+-                  disabled={postingComment || !commentText.trim()}
+-                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-xs font-semibold text-white flex items-center gap-1.5 transition cursor-pointer"
+-                >
+-                  <Send size={11} />
+-                  Post
+-                </button>
+-              </div>
+-            </form>
++              </form>
++            )}
+ 
+             {loadingComments ? (
+               <div className="py-12 text-center text-sm text-gray-500">Loading comments...</div>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1733,6 +1733,57 @@
+                     </div>
+                   );
+                 })}
++
++                {/* Reply comment input at the bottom */}
++                {activeReplyId !== null && (
++                  <form
++                    onSubmit={handlePostComment}
++                    className={
++                      isInputFloatingViewport
++                        ? "fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-50 bg-[#0d0f17]/95 backdrop-blur-md p-4 rounded-none border-b-2 border-indigo-500 border-x-0 border-t-0 flex flex-col gap-3 shadow-[0_10px_50px_rgba(0,0,0,0.5)] transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
++                        : "relative w-full z-10 bg-white/3 backdrop-blur-md border border-white/5 p-4 rounded-xl flex flex-col gap-3 mt-6 transition-all duration-300 animate-in fade-in"
++                    }
++                  >
++                    {activeReplyId && (
++                      <div className="flex items-center justify-between px-3 py-1 bg-indigo-500/10 border-b border-indigo-500/20 text-[10px] font-mono tracking-wider text-indigo-400 uppercase rounded-t-lg">
++                        <span>Replying to @{replyToUser}</span>
++                        <button
++                          type="button"
++                          onClick={() => {
++                            setActiveReplyId(null);
++                            setReplyToUser(null);
++                            setCommentText("");
++                          }}
++                          className="p-1 hover:bg-indigo-500/25 rounded-full transition-colors cursor-pointer"
++                        >
++                          <X size={12} />
++                        </button>
++                      </div>
++                    )}
++                    <textarea
++                      ref={textareaRef}
++                      value={commentText}
++                      onChange={(e) => setCommentText(e.target.value)}
++                      placeholder="Write a transmission reply..."
++                      rows={1}
++                      className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
++                      style={{ height: "auto" }}
++                    />
++                    <div className="flex items-center justify-between border-t border-white/5 pt-3">
++                      <span className="text-[10px] font-mono text-gray-500">
++                        Secure transmission reply mode.
++                      </span>
++                      <button
++                        type="submit"
++                        disabled={postingComment || !commentText.trim()}
++                        className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-xs font-semibold text-white flex items-center gap-1.5 transition cursor-pointer"
++                      >
++                        <Send size={11} />
++                        Post
++                      </button>
++                    </div>
++                  </form>
++                )}
+               </div>
+             ) : (
+               <div className="py-12 text-center text-sm text-gray-500 bg-white/3 border border-white/5 rounded-xl">
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1363,7 +1363,10 @@
+             {/* Floating HUD Controls */}
+             <div className="fixed bottom-6 right-6 lg:bottom-1/2 lg:-translate-y-1/2 lg:right-8 z-40 flex flex-row lg:flex-col gap-2.5 p-2 bg-[#05070a]/90 rounded-full border border-white/10 shadow-2xl backdrop-blur-md">
+               <button
+-                onClick={() => setShowSettings(!showSettings)}
++                onClick={(e) => {
++                  e.stopPropagation();
++                  setShowSettings(!showSettings);
++                }}
+                 className={`w-10 h-10 rounded-full flex items-center justify-center transition cursor-pointer ${showSettings ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}
+                 title="Reader Settings"
+               >
+@@ -1385,6 +1385,7 @@
+                   initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: 15, scale: 0.95 }}
++                  onClick={(e) => e.stopPropagation()}
+                   className="fixed bottom-20 right-6 lg:bottom-1/3 lg:right-20 z-40 w-80 max-h-[75vh] overflow-y-auto p-5 rounded-2xl bg-[#0b0f17]/95 backdrop-blur-xl border border-white/10 text-left space-y-4 shadow-2xl text-gray-200 custom-scrollbar"
+                 >
+                   <div className="flex items-center justify-between border-b border-white/5 pb-2">
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -1511,40 +1511,29 @@
+                       <div className="w-4 h-4 bg-white rounded-full shadow-md" />
+                     </button>
+                   </div>
+-                </motion.div>
+-              )}
+-            </AnimatePresence>
+-          </div>
+-        </section>
+-
+-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-            SECTION 7: COMMENTS
+-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+-        <section id="comments" ref={commentsContainerRef} className="relative py-24 px-4 md:px-8 border-b border-white/5">
+-          <div className="max-w-3xl mx-auto text-left">
+-            <motion.div
+-              className="mb-10 space-y-3"
+-              initial="hidden"
+-              whileInView="visible"
+-              viewport={{ once: true, margin: "-100px" }}
+-              variants={fadeInUp}
+-            >
+-              <span className="text-[10px] font-mono tracking-[0.25em] text-indigo-400 uppercase font-semibold">
+-                Discussion
+-              </span>
+-              <h2 className="text-3xl font-black text-white">Comments</h2>
+-              <div className="h-1 w-12 bg-indigo-500 rounded-full" />
+-            </motion.div>
+-
+-            {activeReplyId === null && (
+-              <form onSubmit={handlePostComment} className="mb-8 p-4 rounded-xl bg-white/3 backdrop-blur-md border border-white/5 flex flex-col gap-3">
+-                <textarea
+-                  ref={textareaRef}
+-                  value={commentText}
+-                  onChange={(e) => setCommentText(e.target.value)}
+-                  placeholder="Share your thoughts on this chapter..."
+-                  rows={1}
+-                  className="w-full bg-transparent border-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
++                                     {currentUser && (currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
++                              <div className="relative">
++                                <button
++                                  onClick={(e) => {
++                                    e.stopPropagation();
++                                    setActiveMenuCommentId(activeMenuCommentId === comment.id ? null : comment.id);
++                                  }}
++                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-all cursor-pointer"
++                                >
++                                  <MoreHorizontal size={12} />
++                                </button>
++                                {activeMenuCommentId === comment.id && (
++                                  <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-1 w-24 rounded-lg bg-slate-950 border border-white/10 py-1 shadow-2xl z-10 animate-in fade-in slide-in-from-top-1 duration-150">
++                                    {currentUser.id === comment.userId && (
++                                      <button onClick={() => { setEditingCommentId(comment.id); setEditText(comment.body); setActiveMenuCommentId(null); }} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-gray-300 hover:bg-white/5 transition-colors uppercase">Edit</button>
++                                    )}
++                                    {(currentUser.id === comment.userId || currentUser.role === "ADMIN") && (
++                                      <button onClick={() => handleDeleteComment(comment.id)} className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors uppercase">Delete</button>
++                                    )}
++                                  </div>
++                                )}
++                              </div>
++                            )}order-0 resize-none text-sm text-gray-200 placeholder-gray-500 focus:ring-0 focus:outline-none overflow-y-auto"
+                   style={{ height: "auto" }}
+                 />
+                 <div className="flex items-center justify-between border-t border-white/5 pt-3">
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -73,6 +73,7 @@
+   width: "narrow" | "medium" 
+| "wide";
+   fullscreen: boolean;
+   backgroundGlow: boolean;
++  dropCap: boolean;
+ }
+ 
+ const 
+DEFAULT_SETTINGS: ReaderSettings = {
+@@ -81,7 +81,8 @@
+   fontFamily: "serif",
+   width: "medium",
+   
+fullscreen: false,
+-  backgroundGlow: true
++  backgroundGlow: true,
++  dropCap: true
+ };
+ 
+ export const 
+metadata = {
+@@ -152,7 +152,8 @@
+       const saved = localStorage.getItem("aetheris_reader_settings");
+       if 
+(saved) {
+         try {
+-          return JSON.parse(saved);
++          const parsed = JSON.parse(saved);
++       
+   return { ...DEFAULT_SETTINGS, ...parsed };
+         } catch (e) {}
+       }
+     }
+@@ -187,6 +187,13 @@
+   
+const [loadingComments, setLoadingComments] = useState(false);
+   const [postingComment, setPostingComment] = 
+useState(false);
+ 
++  // Font family mapping
++  const fontClasses = {
++    serif: 'font-serif tracking-normal 
+antialiased',
++    sans: 'font-sans tracking-wide font-normal antialiased',
++    mono: 'font-mono tracking-tight 
+text-sm leading-relaxed antialiased'
++  };
++
+   // Spacing Scale mapping
+   const spacingScaleClasses = {
+     
+1.5: "leading-relaxed",
+@@ -965,7 +965,7 @@
+                               key={index} 
+                          
+     className="indent-0 md:indent-4 leading-relaxed font-light hover:opacity-80 transition-opacity duration-300"
+  
+                           >
+-                              {isFirst && block.text ? (
++                             
+ {isFirst && block.text && settings.dropCap ? (
+                                 <>
+                                 
+  <span className="text-4xl float-left mr-2.5 mt-1 text-indigo-400 font-display font-black leading
+<truncated 9146 
+bytes>
+s font-medium text-gray-400 block flex items-center gap-1">
+                       <Type size={11} />
+      
+                 Spacing Scale
+@@ -1177,10 +1177,10 @@
+                   </div>
+ 
+                   {/* Column 
+Width */}
+-                  <div className="space-y-2">
++                  <div className="space-y-2 pt-1 
+border-t border-white/5">
+                     <span className="text-xs font-medium text-gray-400 block flex 
+items-center gap-1">
+                       <MoveHorizontal size={11} />
+-                      Column Margin 
+Width
++                      Column Width
+                     </span>
+                     <div className="grid 
+grid-cols-3 gap-1.5 text-[11px]">
+                       {(["narrow", "medium", "wide"] as const).map((w) => 
+(
+@@ -1209,6 +1209,20 @@
+                       <div className="w-4 h-4 bg-white rounded-full shadow-md" />
+      
+               </button>
+                   </div>
++
++                  {/* Drop Cap Switch */}
++                  
+<div className="pt-2 border-t border-white/5 flex items-center justify-between">
++                    <span 
+className="text-xs text-gray-400">Cinematic Drop Cap</span>
++                    <button
++                      
+type="button"
++                      onClick={() => updateSetting("dropCap", !settings.dropCap)}
++               
+       className={`w-10 h-5 rounded-full p-0.5 transition duration-300 cursor-pointer ${
++                        
+settings.dropCap ? "bg-indigo-600 flex justify-end" : "bg-slate-800 flex justify-start"
++                      
+}`}
++                    >
++                      <div className="w-4 h-4 bg-white rounded-full shadow-md" />
++   
+                 </button>
++                  </div>
+                 </motion.div>
+               )}
+             
+</AnimatePresence>
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -192,7 +192,6 @@
+   // Load lore database 
+background
+   const lore = useMemo(() => getStoryLore(story.slug, story.title, story.tags), [story]);
+ 
+-  // 
+Comments states
+   const [comments, setComments] = useState<any[]>([]);
+   const [commentText, setCommentText] = 
+useState("");
+   const [loadingComments, setLoadingComments] = useState(false);
+@@ -199,3 +199,6 @@
++  const 
+[activeReplyId, setActiveReplyId] = useState<string | null>(null);
++  const [replyText, setReplyText] = 
+useState("");
++  const [postingReply, setPostingReply] = useState(false);
+ 
+   // Font family mapping
+   const 
+fontClasses = {
+
+diff --git a/components/reader-layouts/cinematic.tsx b/components/reader-layouts/cinematic.tsx
+--- a/components/reader-layouts/cinematic.tsx
++++ b/components/reader-layouts/cinematic.tsx
+
+@@ -307,6 +307,36 @@
+     }
+   };
+ 
++  const 
+handlePostReply = async (parentId: string) => {
++    if (!replyText.trim() || !activeChapter) return;
++    
+setPostingReply(true);
++    try {
++      const res = await fetch("/api/comments", {
++        method: "POST",
++ 
+       headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({
++          storyId: 
+story.id,
++          chapterId: activeChapter.id,
++          parentId,
++          body: replyText.trim()
++        
+})
++      });
++      const body = await res.json();
++      if (res.ok) {
++        setReplyText("");
++        
+setActiveReplyId(null);
++        fetchComments(activeChapter.id);
++        triggerNotification("Reply beam 
+transmitted successfully.");
++      } else {
++        showToast(body.error?.message || "Failed to transmit 
+reply", "error");
++      }
++    } catch (err) {
++      showToast("Error transmitting reply", "error");
++    
+} finally {
++      setPostingReply(false);
++    }
++  };
++
+   // Secure content loader
+   const 
+loadChapterContent = useCallback(async (chapterId: string) => {
+     if (chapterContents[chapterId]?.length) 
+{
+

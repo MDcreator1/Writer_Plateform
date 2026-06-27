@@ -74,8 +74,38 @@ export interface IconProps extends React.SVGProps<SVGSVGElement> {
 }
 
 export function Icon({ name, className, ...props }: IconProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Check if there is a custom SVG override registered
-  const customSvg = CUSTOM_ICONS[name];
+  let customSvg = CUSTOM_ICONS[name];
+  
+  // Match theme button icon with custom home page styling (Aetheris cyberpunk)
+  if (mounted && window.location.pathname === "/") {
+    const isAetherisTheme = 
+      document.documentElement.classList.contains("lm-theme-light") || 
+      document.documentElement.classList.contains("lm-theme-dark") ||
+      (!document.documentElement.className.includes("lm-theme-")); // default fallback
+      
+    if (isAetherisTheme) {
+      if (name === "themeModeDefault") {
+        customSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full text-teal-400 drop-shadow-[0_0_8px_rgba(20,184,166,0.8)]">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          <path d="M12 8a4.002 4.002 0 0 1 3.9 3.097 4.002 4.002 0 0 1-5.8 4.8 4.002 4.002 0 0 1 .1-6.197" fill="currentColor"/>
+        </svg>`;
+      } else if (name === "themeModeHover") {
+        customSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full text-teal-300 drop-shadow-[0_0_12px_rgba(20,184,166,1)]">
+          <circle cx="12" cy="12" r="4" fill="currentColor" fill-opacity="0.2"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          <path d="M16 12a4 4 0 0 1-4 4" stroke-width="2"/>
+        </svg>`;
+      }
+    }
+  }
   
   if (customSvg) {
     // Render custom raw SVG string safely in React

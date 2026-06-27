@@ -28,16 +28,38 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(DEFAULT_THEME);
 
   useEffect(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
-    const initial = stored && THEMES.some((item) => item.id === stored) ? stored : DEFAULT_THEME;
+    const storedVelora = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
+    const storedStudio = localStorage.getItem("lm_theme");
+    let initial = DEFAULT_THEME;
+    
+    if (storedVelora && THEMES.some((item) => item.id === storedVelora)) {
+      initial = storedVelora;
+    } else if (storedStudio) {
+      const mapped = `lm-theme-${storedStudio}` as ThemeId;
+      if (THEMES.some((item) => item.id === mapped)) {
+        initial = mapped;
+      }
+    }
+    
     setThemeState(initial);
     applyTheme(initial);
+    
+    // Ensure both keys are in sync on boot
+    const studioMode = initial.replace("lm-theme-", "");
+    localStorage.setItem("lm_theme", studioMode);
+    localStorage.setItem("lm_dark", String(studioMode === "dark"));
+    localStorage.setItem(THEME_STORAGE_KEY, initial);
   }, []);
 
   const setTheme = useCallback((next: ThemeId) => {
     setThemeState(next);
     applyTheme(next);
     localStorage.setItem(THEME_STORAGE_KEY, next);
+    
+    // Synchronize with Lekhak Manch Writer Studio
+    const studioMode = next.replace("lm-theme-", "");
+    localStorage.setItem("lm_theme", studioMode);
+    localStorage.setItem("lm_dark", String(studioMode === "dark"));
   }, []);
 
   const value = useMemo(() => ({ theme, setTheme, themes: THEMES }), [theme, setTheme]);

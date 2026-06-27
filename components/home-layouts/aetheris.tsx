@@ -344,7 +344,6 @@ function loadRazorpayScript() {
 function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: AetherisCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, active: false });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -371,40 +370,9 @@ function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: Aeth
     canvas.height = dimensions.height;
   }, [dimensions]);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left - rect.width / 2;
-      const y = e.clientY - rect.top - rect.height / 2;
-      mouseRef.current.targetX = x;
-      mouseRef.current.targetY = y;
-      mouseRef.current.active = true;
-    };
-
-    const handleMouseLeave = () => {
-      mouseRef.current.active = false;
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
+  const particles = useMemo(() => {
     const particleCount = 650;
-    const particles: Particle[] = [];
-    const perspective = 400;
-    let currentScrollProgress = 0;
-
+    const list: Particle[] = [];
     for (let i = 0; i < particleCount; i++) {
       const phi = Math.acos(-1 + (2 * i) / particleCount);
       const theta = Math.sqrt(particleCount * Math.PI) * phi;
@@ -421,7 +389,7 @@ function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: Aeth
         color = canvasParticles[2] || canvasParticles[0];
       }
 
-      particles.push({
+      list.push({
         x,
         y,
         z,
@@ -436,172 +404,133 @@ function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: Aeth
         phase: Math.random() * Math.PI * 2
       });
     }
+    return list;
+  }, [canvasParticles]);
 
-    const angleY = 0.002;
-    const angleX = 0.001;
-    let animationFrameId: number;
+  const renderCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    const render = () => {
-      ctx.fillStyle = canvasClearBg;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = canvasClearBg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const perspective = 400;
 
-      currentScrollProgress += (scrollProgress - currentScrollProgress) * 0.06;
+    const rotY = scrollProgress * 6.0;
+    const rotX = scrollProgress * 3.0;
 
-      const mouse = mouseRef.current;
-      mouse.x += (mouse.targetX - mouse.x) * 0.04;
-      mouse.y += (mouse.targetY - mouse.y) * 0.04;
+    const cosY = Math.cos(rotY);
+    const sinY = Math.sin(rotY);
+    const cosX = Math.cos(rotX);
+    const sinX = Math.sin(rotX);
 
-      const mouseRotY = mouse.active ? mouse.x * 0.0008 : 0;
-      const mouseRotX = mouse.active ? mouse.y * 0.0008 : 0;
+    const renderedPoints = particles.map((p, index) => {
+      const x1 = p.originalX * cosY - p.originalZ * sinY;
+      const z1 = p.originalX * sinY + p.originalZ * cosY;
 
-      const rotY = currentScrollProgress * 6.0 + mouseRotY;
-      const rotX = currentScrollProgress * 3.0 + mouseRotX;
+      const y2 = p.originalY * cosX - z1 * sinX;
+      const z2 = p.originalY * sinX + z1 * cosX;
 
-      const cosY = Math.cos(rotY);
-      const sinY = Math.sin(rotY);
-      const cosX = Math.cos(rotX);
-      const sinX = Math.sin(rotX);
+      let targetX = x1;
+      let targetY = y2;
+      let targetZ = z2;
 
-      const renderedPoints = particles.map((p, index) => {
-        let x1 = p.originalX * cosY - p.originalZ * sinY;
-        let z1 = p.originalX * sinY + p.originalZ * cosY;
+      if (scrollProgress > 0.02) {
+        const factor = scrollProgress;
+        const twist = p.theta + factor * Math.PI * 3.5;
+        const helixRadius = p.r * (1 + factor * 1.3);
+        const helixHeight = (p.phi - Math.PI / 2) * 400 * factor;
 
-        let y2 = p.originalY * cosX - z1 * sinX;
-        let z2 = p.originalY * sinX + z1 * cosX;
+        const isHelixA = index % 2 === 0;
+        const hTheta = twist + (isHelixA ? 0 : Math.PI);
 
-        p.x = x1;
-        p.y = y2;
-        p.z = z2;
+        const hX = helixRadius * Math.sin(p.phi) * Math.cos(hTheta);
+        const hY = helixHeight;
+        const hZ = helixRadius * Math.sin(p.phi) * Math.sin(hTheta);
 
-        let targetX = p.x;
-        let targetY = p.y;
-        let targetZ = p.z;
-
-        if (currentScrollProgress > 0.02) {
-          const factor = currentScrollProgress;
-          const twist = p.theta + factor * Math.PI * 3.5;
-          const helixRadius = p.r * (1 + factor * 1.3);
-          const helixHeight = (p.phi - Math.PI / 2) * 400 * factor;
-
-          const isHelixA = index % 2 === 0;
-          const hTheta = twist + (isHelixA ? 0 : Math.PI);
-
-          const hX = helixRadius * Math.sin(p.phi) * Math.cos(hTheta);
-          const hY = helixHeight;
-          const hZ = helixRadius * Math.sin(p.phi) * Math.sin(hTheta);
-
-          targetX = p.x * (1 - factor) + hX * factor;
-          targetY = p.y * (1 - factor) + hY * factor;
-          targetZ = p.z * (1 - factor) + hZ * factor;
-        }
-
-        if (mouse.active) {
-          const dx = targetX - mouse.x;
-          const dy = targetY - mouse.y;
-          const distSqr = dx * dx + dy * dy;
-          const maxDist = 180;
-
-          if (distSqr < maxDist * maxDist) {
-            const dist = Math.sqrt(distSqr);
-            const force = (maxDist - dist) / maxDist;
-            const pushX = (dx / dist) * force * 35;
-            const pushY = (dy / dist) * force * 35;
-
-            targetX += pushX;
-            targetY += pushY;
-          }
-        }
-
-        p.phase += 0.015;
-        const pulse = Math.sin(p.phase) * 0.3 + 1.0;
-
-        const projectedZ = targetZ + perspective;
-        const scale = perspective / Math.max(1, projectedZ);
-
-        const screenX = centerX + targetX * scale;
-        const screenY = centerY + targetY * scale;
-
-        return {
-          sx: screenX,
-          sy: screenY,
-          sz: targetZ,
-          scale,
-          color: p.color,
-          size: p.size * scale * pulse
-        };
-      });
-
-      renderedPoints.sort((a, b) => b.sz - a.sz);
-
-      renderedPoints.forEach((pt) => {
-        if (pt.sx < 0 || pt.sx > canvas.width || pt.sy < 0 || pt.sy > canvas.height) {
-          return;
-        }
-
-        const alpha = Math.min(1.0, Math.max(0.1, (pt.sz + 250) / 500));
-
-        if (pt.scale > 1.2 && Math.random() < 0.1) {
-          ctx.beginPath();
-          ctx.arc(pt.sx, pt.sy, pt.size * 3, 0, Math.PI * 2);
-          ctx.fillStyle = pt.color.replace("0.85", "0.06").replace("0.9", "0.06");
-          ctx.fill();
-        }
-
-        ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, pt.size, 0, Math.PI * 2);
-
-        let finalColor = pt.color;
-        if (alpha < 0.95) {
-          finalColor = pt.color
-            .replace("0.85", (0.85 * alpha).toFixed(2))
-            .replace("0.9", (0.9 * alpha).toFixed(2));
-        }
-
-        ctx.fillStyle = finalColor;
-        ctx.fill();
-      });
-
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < renderedPoints.length; i += 20) {
-        const pt1 = renderedPoints[i];
-        if (pt1.scale < 0.8) continue;
-
-        for (let j = i + 1; j < Math.min(renderedPoints.length, i + 6); j++) {
-          const pt2 = renderedPoints[j];
-          if (pt2.scale < 0.8) continue;
-
-          const dx = pt1.sx - pt2.sx;
-          const dy = pt1.sy - pt2.sy;
-          const dSqr = dx * dx + dy * dy;
-
-          if (dSqr < 1500) {
-            const alpha =
-              (1 - Math.sqrt(dSqr) / Math.sqrt(1500)) *
-              0.15 *
-              ((pt1.sz + pt2.sz) / 2 + 250) /
-              500;
-            ctx.beginPath();
-            ctx.moveTo(pt1.sx, pt1.sy);
-            ctx.lineTo(pt2.sx, pt2.sy);
-            const lineCol = canvasParticles[1] || canvasParticles[0];
-            ctx.strokeStyle = lineCol.replace("0.85", String(alpha.toFixed(3)));
-            ctx.stroke();
-          }
-        }
+        targetX = x1 * (1 - factor) + hX * factor;
+        targetY = y2 * (1 - factor) + hY * factor;
+        targetZ = z2 * (1 - factor) + hZ * factor;
       }
 
-      animationFrameId = requestAnimationFrame(render);
-    };
+      const pulse = Math.sin(p.phase) * 0.3 + 1.0;
 
-    render();
+      const projectedZ = targetZ + perspective;
+      const scale = perspective / Math.max(1, projectedZ);
 
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [scrollProgress, canvasParticles, canvasClearBg]);
+      const screenX = centerX + targetX * scale;
+      const screenY = centerY + targetY * scale;
+
+      return {
+        sx: screenX,
+        sy: screenY,
+        sz: targetZ,
+        scale,
+        color: p.color,
+        size: p.size * scale * pulse
+      };
+    });
+
+    renderedPoints.sort((a, b) => b.sz - a.sz);
+
+    renderedPoints.forEach((pt) => {
+      if (pt.sx < 0 || pt.sx > canvas.width || pt.sy < 0 || pt.sy > canvas.height) {
+        return;
+      }
+
+      const alpha = Math.min(1.0, Math.max(0.1, (pt.sz + 250) / 500));
+
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, pt.size, 0, Math.PI * 2);
+
+      let finalColor = pt.color;
+      if (alpha < 0.95) {
+        finalColor = pt.color
+          .replace("0.85", (0.85 * alpha).toFixed(2))
+          .replace("0.9", (0.9 * alpha).toFixed(2));
+      }
+
+      ctx.fillStyle = finalColor;
+      ctx.fill();
+    });
+
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < renderedPoints.length; i += 20) {
+      const pt1 = renderedPoints[i];
+      if (pt1.scale < 0.8) continue;
+
+      for (let j = i + 1; j < Math.min(renderedPoints.length, i + 6); j++) {
+        const pt2 = renderedPoints[j];
+        if (pt2.scale < 0.8) continue;
+
+        const dx = pt1.sx - pt2.sx;
+        const dy = pt1.sy - pt2.sy;
+        const dSqr = dx * dx + dy * dy;
+
+        if (dSqr < 1500) {
+          const alpha =
+            (1 - Math.sqrt(dSqr) / Math.sqrt(1500)) *
+            0.15 *
+            ((pt1.sz + pt2.sz) / 2 + 250) /
+            500;
+          ctx.beginPath();
+          ctx.moveTo(pt1.sx, pt1.sy);
+          ctx.lineTo(pt2.sx, pt2.sy);
+          const lineCol = canvasParticles[1] || canvasParticles[0];
+          ctx.strokeStyle = lineCol.replace("0.85", String(alpha.toFixed(3)));
+          ctx.stroke();
+        }
+      }
+    }
+  }, [scrollProgress, dimensions, canvasParticles, canvasClearBg, particles]);
+
+  useEffect(() => {
+    renderCanvas();
+  }, [renderCanvas]);
 
   return (
     <div
@@ -617,8 +546,177 @@ function AetherisCanvas({ scrollProgress, canvasParticles, canvasClearBg }: Aeth
   );
 }
 
+type ThemeColors = ReturnType<typeof getThemeColors>;
+type AetherisIcon = React.ComponentType<{ className?: string }>;
+
+type FeatureSystemCardData = {
+  id: string;
+  icon: AetherisIcon;
+  title: string;
+  description: string;
+  category: string;
+  glowColor: string;
+};
+
+function FeatureSystemCard({
+  card,
+  colors,
+  index
+}: {
+  card: FeatureSystemCardData;
+  colors: ThemeColors;
+  index: number;
+}) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const CardIcon = card.icon;
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+
+    setRotate({ x: -y * 18, y: x * 18 });
+    setGlowPos({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setRotate({ x: 0, y: 0 });
+  };
+
+  return (
+    <motion.div
+      initial={{
+        y: 75,
+        opacity: 0,
+        rotateX: 18,
+        rotateY: -5,
+        scale: 0.94,
+        filter: "blur(6px)"
+      }}
+      whileInView={{
+        y: 0,
+        opacity: 1,
+        rotateX: 0,
+        rotateY: 0,
+        scale: 1,
+        filter: "blur(0px)"
+      }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 1.2, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+      className="aetheris-perspective transform-gpu"
+    >
+      <div
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          transform: isHovered
+            ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.025)`
+            : "rotateX(0deg) rotateY(0deg) scale(1)",
+          transition: isHovered ? "none" : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+        }}
+        className={`relative h-full flex flex-col justify-between p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:border-teal-400/40 hover:shadow-teal-950/10 transition-all duration-300 min-h-[260px]`}
+      >
+        <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
+          style={{
+            background: `radial-gradient(circle 220px at ${glowPos.x}px ${glowPos.y}px, ${card.glowColor}, transparent 80%)`
+          }}
+        />
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5 group-hover:border-teal-500/30 transition-all duration-500 shadow-inner`}>
+              <CardIcon className="w-6 h-6 text-teal-400 group-hover:scale-110 group-hover:text-teal-300 transition-all duration-500" />
+            </div>
+            <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest italic font-mono">
+              {card.category}
+            </span>
+          </div>
+
+          <h3 className="font-sans text-[15px] font-bold text-white tracking-tight mb-2.5 group-hover:text-teal-200 transition-colors">
+            {card.title}
+          </h3>
+          <p className="font-sans text-[12px] text-white/70 leading-relaxed font-light group-hover:text-white transition-colors">
+            {card.description}
+          </p>
+        </div>
+
+        <div className="mt-6 w-6 h-[1.5px] bg-white/30 group-hover:w-full transition-all duration-500 ease-out" />
+      </div>
+    </motion.div>
+  );
+}
+
+function SecurityLayerCard({
+  colors,
+  layer
+}: {
+  colors: ThemeColors;
+  layer: { label: string; icon: AetherisIcon };
+}) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const LayerIcon = layer.icon;
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+
+    setRotate({ x: -y * 14, y: x * 14 });
+    setGlowPos({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setRotate({ x: 0, y: 0 });
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        transform: isHovered
+          ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.02)`
+          : "rotateX(0deg) rotateY(0deg) scale(1)",
+        transition: isHovered ? "none" : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+      }}
+      className={`relative flex flex-col p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:shadow-black/50 transition-all duration-300 min-h-[180px]`}
+    >
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
+        style={{
+          background: `radial-gradient(circle 200px at ${glowPos.x}px ${glowPos.y}px, ${colors.glowColor}, transparent 80%)`
+        }}
+      />
+      <div className="relative z-10 flex flex-col gap-4">
+        <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5`}>
+          <LayerIcon className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform duration-300" />
+        </div>
+        <h4 className="font-sans text-base font-bold text-white tracking-tight">
+          {layer.label}
+        </h4>
+      </div>
+    </div>
+  );
+}
 // --- GUEST 3D STORY CAROUSEL SECTION ---
-function StoryCard({ story, featured = false, colors }: { story: Story; featured?: boolean; colors: any }) {
+function StoryCard({ story, featured = false, colors }: { story: Story; featured?: boolean; colors: ThemeColors }) {
   return (
     <div
       className={`group relative mx-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border transition-all duration-300 ${featured ? `${colors.cardBorder} shadow-2xl` : `${colors.cardBorder} opacity-60`
@@ -1270,7 +1368,7 @@ export default function AetherisSpatialLayout({
               <span className="text-teal-400">{telemetryTime || "12:00:00"}</span>
             </div>
 
-            <ThemeSwitcher compact />
+            <ThemeSwitcher compact variant="aetheris" />
 
             {isAuthenticated ? (
               <div className="relative flex items-center gap-4" ref={profileMenuRef}>
@@ -1364,7 +1462,7 @@ export default function AetherisSpatialLayout({
           </div>
 
           <div className="flex lg:hidden items-center gap-4">
-            <ThemeSwitcher compact />
+            <ThemeSwitcher compact variant="aetheris" />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="w-10 h-10 flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950/50 text-white hover:border-teal-500/50 transition-colors"
@@ -1704,98 +1802,9 @@ export default function AetherisSpatialLayout({
                     category: "Token Mechanics",
                     glowColor: colors.glowColor
                   }
-                ].map((card, idx) => {
-                  const cardRef = useRef<HTMLDivElement | null>(null);
-                  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-                  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
-                  const [isHovered, setIsHovered] = useState(false);
-                  const CardIcon = card.icon;
-
-                  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-                    if (!cardRef.current) return;
-                    const rect = cardRef.current.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width - 0.5;
-                    const y = (e.clientY - rect.top) / rect.height - 0.5;
-
-                    setRotate({ x: -y * 18, y: x * 18 });
-                    setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                  };
-
-                  const handleMouseLeave = () => {
-                    setIsHovered(false);
-                    setRotate({ x: 0, y: 0 });
-                  };
-
-                  return (
-                    <motion.div
-                      key={card.id}
-                      initial={{
-                        y: 75,
-                        opacity: 0,
-                        rotateX: 18,
-                        rotateY: -5,
-                        scale: 0.94,
-                        filter: "blur(6px)"
-                      }}
-                      whileInView={{
-                        y: 0,
-                        opacity: 1,
-                        rotateX: 0,
-                        rotateY: 0,
-                        scale: 1,
-                        filter: "blur(0px)"
-                      }}
-                      viewport={{ once: true, margin: "-50px" }}
-                      transition={{ duration: 1.2, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                      className="aetheris-perspective transform-gpu"
-                    >
-                      <div
-                        ref={cardRef}
-                        onMouseMove={handleMouseMove}
-                        onMouseEnter={() => setIsHovered(true)}
-                        onMouseLeave={handleMouseLeave}
-                        style={{
-                          transform: isHovered
-                            ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.025)`
-                            : "rotateX(0deg) rotateY(0deg) scale(1)",
-                          transition: isHovered
-                            ? "none"
-                            : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
-                        }}
-                        className={`relative h-full flex flex-col justify-between p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:border-teal-400/40 hover:shadow-teal-950/10 transition-all duration-300 min-h-[260px]`}
-                      >
-                        <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
-
-                        <div
-                          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
-                          style={{
-                            background: `radial-gradient(circle 220px at ${glowPos.x}px ${glowPos.y}px, ${card.glowColor}, transparent 80%)`
-                          }}
-                        />
-
-                        <div className="relative z-10">
-                          <div className="flex items-center justify-between mb-6">
-                            <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5 group-hover:border-teal-500/30 transition-all duration-500 shadow-inner`}>
-                              <CardIcon className="w-6 h-6 text-teal-400 group-hover:scale-110 group-hover:text-teal-300 transition-all duration-500" />
-                            </div>
-                            <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest italic font-mono">
-                              {card.category}
-                            </span>
-                          </div>
-
-                          <h3 className="font-sans text-[15px] font-bold text-white tracking-tight mb-2.5 group-hover:text-teal-200 transition-colors">
-                            {card.title}
-                          </h3>
-                          <p className="font-sans text-[12px] text-white/70 leading-relaxed font-light group-hover:text-white transition-colors">
-                            {card.description}
-                          </p>
-                        </div>
-
-                        <div className="mt-6 w-6 h-[1.5px] bg-white/30 group-hover:w-full transition-all duration-500 ease-out" />
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                ].map((card, idx) => (
+                  <FeatureSystemCard key={card.id} card={card} colors={colors} index={idx} />
+                ))}
               </div>
             </div>
           </section>
@@ -1967,7 +1976,7 @@ export default function AetherisSpatialLayout({
                           System Core Signature
                         </div>
                         <div className="text-xs font-semibold text-white mt-1.5 tracking-wider">
-                          {activeShowcase.title.toUpperCase()} // ACTIVE
+                          {activeShowcase.title.toUpperCase()} - ACTIVE
                         </div>
                       </div>
                     </motion.div>
@@ -2386,61 +2395,9 @@ export default function AetherisSpatialLayout({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {securityLayers.map((layer: any) => {
-                  const cardRef = useRef<HTMLDivElement | null>(null);
-                  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-                  const [glowPos, setGlowPos] = useState({ x: 0, y: 0 });
-                  const [isHovered, setIsHovered] = useState(false);
-                  const LayerIcon = layer.icon;
-
-                  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-                    if (!cardRef.current) return;
-                    const rect = cardRef.current.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width - 0.5;
-                    const y = (e.clientY - rect.top) / rect.height - 0.5;
-                    setRotate({ x: -y * 14, y: x * 14 });
-                    setGlowPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                  };
-
-                  const handleMouseLeave = () => {
-                    setIsHovered(false);
-                    setRotate({ x: 0, y: 0 });
-                  };
-
-                  return (
-                    <div
-                      key={layer.label}
-                      ref={cardRef}
-                      onMouseMove={handleMouseMove}
-                      onMouseEnter={() => setIsHovered(true)}
-                      onMouseLeave={handleMouseLeave}
-                      style={{
-                        transform: isHovered
-                          ? `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(1.02)`
-                          : "rotateX(0deg) rotateY(0deg) scale(1)",
-                        transition: isHovered
-                          ? "none"
-                          : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
-                      }}
-                      className={`relative flex flex-col p-8 rounded-2xl border ${colors.cardBorder} ${colors.cardBg} backdrop-blur-xl overflow-hidden group cursor-pointer shadow-lg hover:shadow-black/50 transition-all duration-300 min-h-[180px]`}
-                    >
-                      <div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 z-0"
-                        style={{
-                          background: `radial-gradient(circle 200px at ${glowPos.x}px ${glowPos.y}px, ${colors.glowColor}, transparent 80%)`
-                        }}
-                      />
-                      <div className="relative z-10 flex flex-col gap-4">
-                        <div className={`w-10 h-10 flex items-center justify-center rounded-lg border ${colors.cardBorder} bg-white/5`}>
-                          <LayerIcon className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform duration-300" />
-                        </div>
-                        <h4 className="font-sans text-base font-bold text-white tracking-tight">
-                          {layer.label}
-                        </h4>
-                      </div>
-                    </div>
-                  );
-                })}
+                {securityLayers.map((layer) => (
+                  <SecurityLayerCard key={layer.label} colors={colors} layer={layer} />
+                ))}
               </div>
             </div>
           </section>

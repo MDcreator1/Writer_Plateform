@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DashboardPage } from "@/components/dashboard-page";
 import { getCurrentUser } from "@/lib/auth";
@@ -20,7 +20,18 @@ export default async function Page() {
 
   return (
     <DashboardPage
-      user={{ displayName: user.displayName, username: user.username, email: user.email }}
+      user={{
+        displayName: user.displayName,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+        hasPhone: Boolean(user.phone),
+        lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+        createdAt: user.createdAt.toISOString()
+      }}
       data={data}
     />
   );

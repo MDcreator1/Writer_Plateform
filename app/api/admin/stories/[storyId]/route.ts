@@ -29,7 +29,21 @@ export async function GET(
       return fail("Story not found.", 404, "NOT_FOUND");
     }
 
-    return ok(story);
+    const [realReadsCount, ratingMetrics] = await Promise.all([
+      prisma.readingHistory.count({ where: { storyId } }),
+      prisma.rating.aggregate({
+        where: { storyId },
+        _avg: { value: true },
+        _count: { _all: true }
+      })
+    ]);
+
+    return ok({
+      ...story,
+      readsCount: realReadsCount,
+      ratingAverage: ratingMetrics._avg.value ?? 0,
+      ratingsCount: ratingMetrics._count._all
+    });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to retrieve story.", 500);
   }

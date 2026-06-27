@@ -326,9 +326,9 @@ export function AuthPage({ defaultStep = 1 }: { defaultStep?: number }) {
   const [loading, setLoading] = useState(false);
 
   const searchParams = useSearchParams();
-  const mode = searchParams.get("mode");
-  const urlError = searchParams.get("error");
-  const sessionStep = searchParams.get("step");
+  const mode = searchParams?.get("mode") ?? null;
+  const urlError = searchParams?.get("error") ?? null;
+  const sessionStep = searchParams?.get("step") ?? null;
 
   // URL param handling
   useEffect(() => {

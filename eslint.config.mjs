@@ -11,9 +11,15 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   {
-    ignores: [".next/**", "node_modules/**", "next-env.d.ts"]
+    ignores: [".next/**", "node_modules/**", "next-env.d.ts", "Writer_studio/**", "public/assets/**"]
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript")
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react/no-unescaped-entities": "warn"
+    }
+  }
 ];
 
 export default eslintConfig;

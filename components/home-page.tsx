@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { registry } from "./home-layouts/registry";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   BookOpen,
@@ -20,7 +20,13 @@ import {
   Instagram,
   Facebook,
   Youtube,
-  Linkedin
+  Linkedin,
+  Coins,
+  ShieldCheck,
+  X,
+  Home,
+  Compass,
+  Wallet
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -596,7 +602,7 @@ function StoryCarouselSection({ stories }: { stories: Story[] }) {
         </div>
 
         <div className="carousel-hint">
-          <span>ड्रैग करें · स्क्रॉल करें · क्लिक करें</span>
+          <span>Drag · Scroll · Click</span>
           <div className="arrow" />
         </div>
       </section>
@@ -829,29 +835,32 @@ function StoryCarouselSection({ stories }: { stories: Story[] }) {
 
         @media (max-width: 720px) {
           .story-carousel-wrapper {
-            --carousel-radius: clamp(180px, 40vw, 250px);
-            --stage-shift-y: -20px;
+            --carousel-radius: clamp(140px, 35vw, 190px);
+            --stage-shift-y: -10px;
             --tilt: -10deg;
           }
-          .carousel-card-container {
-            width: 180px;
-            margin-left: -90px;
-            height: 280px;
-            margin-top: -140px;
-          }
-          .carousel-headline .sub { display: none; }
-          .carousel-stage { height: 60svh; }
-          .carousel-hint { display: none; }
-        }
-        @media (max-width: 420px) {
           .carousel-card-container {
             width: 140px;
             margin-left: -70px;
             height: 220px;
             margin-top: -110px;
           }
-          .carousel-center-logo { width: 60px; }
-          .carousel-center-logo .logo-text { font-size: .7rem; }
+          .carousel-headline .sub { display: none; }
+          .carousel-stage { height: 50svh; }
+          .carousel-hint { display: none; }
+        }
+        @media (max-width: 420px) {
+          .story-carousel-wrapper {
+            --carousel-radius: clamp(110px, 30vw, 140px);
+          }
+          .carousel-card-container {
+            width: 110px;
+            margin-left: -55px;
+            height: 170px;
+            margin-top: -85px;
+          }
+          .carousel-center-logo { width: 45px; }
+          .carousel-center-logo .logo-text { font-size: .6rem; }
           .carousel-center-logo .logo-text small { display: none; }
         }
 
@@ -876,7 +885,7 @@ function Counter({ value }: { value: number }) {
   return <>{display}</>;
 }
 
-function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser, userRole, monetizationSettings, writerNote }: HomePageProps) {
+function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser, userRole, monetizationSettings, writerNote, platformStats }: HomePageProps) {
   const isGuest = !isAuthenticated;
   const isAdmin = userRole === "ADMIN";
   const featuredStory = stories[3] ?? null;
@@ -891,6 +900,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
   const monthlyUpgradeDiscount = settings.monthlyUpgradeDiscount ?? 5;
   const yearlyUpgradeDiscount = settings.yearlyUpgradeDiscount ?? 25;
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(new Date());
   const [rating, setRating] = useState<number>(4);
@@ -1281,8 +1291,64 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
 
 
   return (
-    <main className="home-main overflow-hidden">
-      <header className="home-header fixed sticy left-0 top-0 z-[9999] w-full px-4 py-2">
+    <main className="home-main overflow-hidden pb-[calc(68px+env(safe-area-inset-bottom))] md:pb-0">
+      {/* ── MOBILE APP SHELL HEADER ── */}
+      <header className="fixed left-0 right-0 top-0 z-[9999] bg-surface-raised/80 backdrop-blur-md border-b border-border/40 px-4 py-3 md:hidden flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-on-accent shadow-glow">
+            <BookOpen className="h-5 w-5" />
+          </span>
+          <span className="font-display text-base font-bold text-ink">Velora</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <a href="#coins" className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft/70 px-2.5 py-1 text-xs font-bold text-accent">
+            <Coins className="h-3.5 w-3.5" />
+            <span>Coins</span>
+          </a>
+          {!isGuest ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="h-8 w-8 rounded-full border border-border flex items-center justify-center bg-surface cursor-pointer"
+              >
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-accent via-accent2 to-accent3 text-[10px] font-bold text-on-accent">
+                  {profileInitial}
+                </span>
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 rounded-xl border border-border bg-surface-raised p-4 shadow-xl">
+                  <p className="truncate font-semibold text-ink text-sm">{profileName}</p>
+                  <p className="truncate text-xs text-muted mt-0.5">{currentUser?.email}</p>
+                  <div className="h-px bg-border my-2" />
+                  <Link href="/dashboard" onClick={() => setProfileOpen(false)} className="lm-btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5 mb-2">
+                    <UserCircle className="h-3.5 w-3.5" /> Dashboard
+                  </Link>
+                  <button
+                    onClick={() => { setProfileOpen(false); handleLogout(); }}
+                    className="w-full py-2 rounded-lg bg-danger/10 border border-danger/25 text-xs text-danger font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href="/auth" className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-on-accent">
+              Login
+            </Link>
+          )}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-1.5 border border-border bg-surface rounded-lg cursor-pointer"
+          >
+            <Menu className="h-4 w-4 text-ink" />
+          </button>
+        </div>
+      </header>
+
+      {/* ── DESKTOP HEADER (HIDDEN ON MOBILE) ── */}
+      <header className="home-header fixed left-0 top-0 z-[9999] w-full px-4 py-2 hidden md:block">
         <nav className="mx-auto flex justify-between rounded-full border border-white/10 bg-surface-raised/90 backdrop-blur-xl pr-2 pl-3 py-1.5">
           <Link href="/" className="home-logo flex items-center gap-3">
             <span className="home-logo-icon grid h-10 w-10 place-items-center rounded-xl bg-accent text-on-accent shadow-glow">
@@ -1397,8 +1463,69 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           ✦ VELORA FICTION — HOMEPAGE (Kai Portfolio Structure)
           ================================================================ */}
 
-      {/* ─────────────── HERO ─────────────── */}
-      <section id="home" className="hero-section relative flex min-h-screen w-full items-center overflow-hidden pt-20">
+      {/* ── MOBILE APP WELCOME CARD (MOBILE ONLY) ── */}
+      <section id="home-mobile" className="relative flex flex-col w-full items-center overflow-hidden pt-16 pb-6 md:hidden">
+        {/* Background glow orbs */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div
+            className="absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full opacity-20 blur-3xl"
+            style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+          />
+        </div>
+
+        {/* Mobile View Hero Welcome Card */}
+        <div className="w-full px-4 pt-4 pb-2 space-y-4 relative z-10">
+          <div className="p-4 rounded-xl bg-gradient-to-br from-surface-raised/80 to-surface-soft/40 border border-white/10 shadow-soft backdrop-blur-xl space-y-3">
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-accent">Premium Reading App</span>
+            </div>
+            <div className="space-y-0.5">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-ink">
+                Velora <span className="bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">Fiction</span>
+              </h1>
+              <p className="text-[11px] text-muted font-medium">Serialized premium stories for readers and authors.</p>
+            </div>
+            <div className="flex gap-2">
+              <Link
+                href={isAuthenticated ? "/stories" : (featuredStory ? `/read/${featuredStory.slug}` : "/auth")}
+                className="flex-1 py-2 text-center rounded-lg bg-gradient-to-r from-accent to-accent2 text-[11px] font-bold text-on-accent shadow-md flex items-center justify-center gap-1 min-h-[40px]"
+              >
+                <span>{isAuthenticated ? "Explore Catalog" : "Start Reading"}</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+              {isGuest ? (
+                <Link
+                  href="/auth?mode=register"
+                  className="flex-1 py-2 text-center rounded-lg border border-border bg-surface-soft/60 text-[11px] font-bold text-ink flex items-center justify-center min-h-[40px]"
+                >
+                  Register
+                </Link>
+              ) : (
+                <a
+                  href="#coins"
+                  className="flex-1 py-2 text-center rounded-lg border border-border bg-surface-soft/60 text-[11px] font-bold text-ink flex items-center justify-center min-h-[40px]"
+                >
+                  Buy Coins
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Stats horizontal bar */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {platformStats.map((stat) => (
+              <div key={stat.label} className="flex items-center gap-2 shrink-0 rounded-full border border-border/45 bg-surface-raised/50 px-3 py-1 text-[10px] backdrop-blur-md">
+                <strong className="font-bold text-accent">{stat.value}</strong>
+                <span className="text-[9px] text-muted font-medium">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────────── HERO (DESKTOP/TABLET ONLY) ─────────────── */}
+      <section id="home" className="hero-section relative !hidden md:!flex min-h-screen w-full items-center overflow-hidden pt-20">
         {/* Background glow orbs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div
@@ -1599,11 +1726,11 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           {/* Admin trust badges */}
           {isAdmin ? (
             <div className="trust-badges-strip border-y border-border/50 bg-surface-soft/40 py-4 backdrop-blur">
-              <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-3 px-6">
+              <div className="mx-auto flex max-w-7xl flex-nowrap md:flex-wrap items-center justify-start md:justify-center gap-3 px-6 overflow-x-auto md:overflow-visible scrollbar-none snap-x snap-mandatory">
                 {trustBadges.map((badge) => (
                   <div
                     key={badge.label}
-                    className="trust-badge flex items-center gap-2 rounded-full border border-border bg-surface-raised/80 px-4 py-1.5 text-xs font-semibold text-soft-ink"
+                    className="trust-badge flex items-center gap-2 rounded-full border border-border bg-surface-raised/80 px-4 py-1.5 text-xs font-semibold text-soft-ink shrink-0 snap-align-start"
                   >
                     <badge.icon className="h-3.5 w-3.5 text-accent" />
                     {badge.label}
@@ -1646,16 +1773,18 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                 />
               </motion.div>
 
-              {/* Story cards grid — Kai projects style */}
+              {/* Story cards grid — mobile horizontal scroll / desktop grid */}
               <motion.div
                 variants={staggerContainer}
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: "-60px" }}
-                className="stories-grid grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                className="stories-grid flex md:grid gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 scrollbar-none snap-x snap-mandatory md:grid-cols-2 lg:grid-cols-3"
               >
                 {stories.slice(0, 3).map((story) => (
-                  <KaiStoryCard key={story.id} story={story} />
+                  <div key={story.id} className="min-w-[140px] w-[140px] md:w-auto shrink-0 snap-align-start snap-always">
+                    <KaiStoryCard story={story} />
+                  </div>
                 ))}
               </motion.div>
 
@@ -1733,17 +1862,17 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                       transition={{ duration: 0.4, delay: idx * 0.07 }}
                       whileHover={{ x: -6, borderColor: "rgba(var(--accent-rgb), 0.6)" }}
                       onClick={() => handleSubscriptionSelect(pack)}
-                      className="coin-package-row group relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-xl border border-border/30 bg-surface/10 px-5 py-4 text-left backdrop-blur transition-all duration-300 hover:bg-surface/20"
+                      className="coin-package-row group relative flex flex-col md:flex-row w-full cursor-pointer items-stretch md:items-center justify-between overflow-hidden rounded-xl border border-border/30 bg-surface/10 p-4 md:px-5 md:py-4 text-center md:text-left backdrop-blur transition-all duration-300 hover:bg-surface/20 gap-3 md:gap-0"
                     >
                       {/* hover glow */}
                       <div className="pointer-events-none absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-accent/5 via-transparent to-accent2/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
-                      <div>
+                      <div className="flex flex-col items-center md:items-start">
                         <span className="inline-block rounded-full bg-accent/15 px-3 py-0.5 text-xs font-semibold text-accent">
                           {pack.badge}
                         </span>
-                        <div className="mt-1.5 flex items-baseline gap-2">
-                          <span className="text-2xl font-semibold text-ink">
+                        <div className="mt-1.5 flex flex-col md:flex-row items-center md:items-baseline gap-1 md:gap-2">
+                          <span className="text-xl md:text-2xl font-semibold text-ink leading-tight">
                             {pack.name}
                           </span>
                           <span className="text-xs font-medium text-muted">
@@ -1755,12 +1884,14 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                         </p>
                       </div>
 
-                      <span
-                        className="coin-price rounded-full px-5 py-2 text-sm font-semibold text-on-accent shadow-sm transition-transform group-hover:scale-105"
-                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
-                      >
-                        ₹<Counter value={pack.price} />/{pack.period === "week" ? "wk" : pack.period === "month" ? "mo" : "yr"}
-                      </span>
+                      <div className="flex flex-col items-center md:items-end gap-2 md:gap-0">
+                        <span
+                          className="coin-price rounded-full px-5 py-2.5 md:py-2 text-xs md:text-sm font-semibold text-on-accent shadow-sm transition-transform group-hover:scale-105 min-h-[40px] md:min-h-0 flex items-center justify-center w-full md:w-auto"
+                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        >
+                          ₹<Counter value={pack.price} />/{pack.period === "week" ? "wk" : pack.period === "month" ? "mo" : "yr"}
+                        </span>
+                      </div>
                     </motion.button>
                   ))}
                 </motion.div>
@@ -1797,7 +1928,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                         onClick={() => (checkoutPackageId ? undefined : handlePackageSelect(pack))}
                         disabled={!!checkoutPackageId}
                         aria-busy={checkoutPackageId === pack.id}
-                        className={`coin-package-row group relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-xl border px-5 py-4 text-left backdrop-blur transition-all duration-300 disabled:cursor-wait ${totalDiscount > 0
+                        className={`coin-package-row group relative flex flex-col md:flex-row w-full cursor-pointer items-stretch md:items-center justify-between overflow-hidden rounded-xl border p-4 md:px-5 md:py-4 text-center md:text-left backdrop-blur transition-all duration-300 disabled:cursor-wait gap-3 md:gap-0 ${totalDiscount > 0
                             ? "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
                             : "border-border/30 bg-surface/10 hover:bg-surface/20"
                           }`}
@@ -1805,7 +1936,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                         {/* hover glow */}
                         <div className="pointer-events-none absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-accent/5 via-transparent to-accent2/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
-                        <div>
+                        <div className="flex flex-col items-center md:items-start">
                           <div className="flex items-center gap-2">
                             <span className="inline-block rounded-full bg-accent/15 px-3 py-0.5 text-xs font-semibold text-accent">
                               {checkoutPackageId === pack.id ? "Opening…" : pack.badge}
@@ -1818,22 +1949,21 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                             )}
                           </div>
 
-                          <div className="mt-1.5 flex items-baseline gap-2">
-                            <span className="text-2xl font-semibold text-ink">
-                              <Counter value={pack.coins} />
+                          <div className="mt-1.5 flex flex-col md:flex-row items-center md:items-baseline gap-1 md:gap-2">
+                            <span className="text-xl md:text-2xl font-semibold text-ink leading-tight">
+                              <Counter value={pack.coins} /> coins
                             </span>
-                            <span className="text-sm font-medium text-muted">coins</span>
                             {pack.bonus ? (
-                              <span className="text-sm font-medium text-accent/80">
+                              <span className="text-xs sm:text-sm font-medium text-accent/80">
                                 + <Counter value={pack.bonus} /> bonus
                               </span>
                             ) : null}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col md:flex-row items-center md:justify-end gap-2 md:gap-3">
                           {totalDiscount > 0 && (
-                            <div className="text-right">
+                            <div className="text-center md:text-right">
                               <div className="text-[10px] text-muted line-through font-mono">
                                 ₹{basePrice}
                               </div>
@@ -2186,15 +2316,15 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                   {/* Feedback form */}
                   <form onSubmit={handleFeedbackSubmit} className="feedback-card lm-card p-6">
                     <h3 className="font-display text-xl font-semibold text-ink">Reader Feedback</h3>
-                    <div className="mt-1 grid gap-3 md:grid-cols-[1fr_auto]">
+                    <div className="mt-3 grid gap-4 grid-cols-1 md:grid-cols-[1fr_auto]">
                       <input
-                        className="input-underline ml-2 pl-2"
+                        className="input-underline w-full px-2 py-1.5"
                         placeholder="Your name"
                         value={feedbackName}
                         onChange={(e) => setFeedbackName(e.target.value)}
                         required
                       />
-                      <div className="flex flex-col gap-1 justify-center justify-self-end mr-4">
+                      <div className="flex flex-col gap-1 justify-start md:justify-center md:justify-self-end md:mr-4">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-soft">Rating (Min 3 stars)</span>
                         <div className="flex items-center gap-1 mt-0.5">
                           {Array.from({ length: 5 }).map((_, idx) => {
@@ -2351,6 +2481,153 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           </div>
         </div>
       </motion.footer>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-surface-raised/90 backdrop-blur-md border-t border-border/40 pb-[env(safe-area-inset-bottom)] shadow-lg flex justify-around py-2.5">
+        <a href="#home" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <Home className="h-5 w-5" />
+          <span>Home</span>
+        </a>
+        <a href="#stories" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <BookOpen className="h-5 w-5" />
+          <span>Stories</span>
+        </a>
+        <a href="#coins" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <Coins className="h-5 w-5" />
+          <span>Wallet</span>
+        </a>
+        <a href="#coins" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <Crown className="h-5 w-5" />
+          <span>Offers</span>
+        </a>
+        {isAuthenticated ? (
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+            <UserCircle className="h-5 w-5" />
+            <span>Profile</span>
+          </Link>
+        ) : (
+          <Link href="/auth" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+            <UserCircle className="h-5 w-5" />
+            <span>Login</span>
+          </Link>
+        )}
+      </nav>
+
+      {/* ── MOBILE SIDE NAVIGATION DRAWER ── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm md:hidden"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 right-0 top-0 z-[999999] w-72 bg-surface-raised p-6 shadow-2xl backdrop-blur-xl md:hidden flex flex-col justify-between"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-lg font-bold text-ink">Velora Menu</span>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1 rounded-lg border border-border bg-surface text-ink cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-4 text-md font-semibold text-soft-ink">
+                  <a
+                    href="#home"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-accent py-2 border-b border-border/40"
+                  >
+                    Home
+                  </a>
+                  <a
+                    href="#stories"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-accent py-2 border-b border-border/40"
+                  >
+                    Stories
+                  </a>
+                  <a
+                    href="#coins"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-accent py-2 border-b border-border/40"
+                  >
+                    Coins / Wallet
+                  </a>
+                  {isAdmin && (
+                    <>
+                      <a
+                        href="#protection"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="hover:text-accent py-2 border-b border-border/40"
+                      >
+                        Protection
+                      </a>
+                      <Link
+                        href="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="hover:text-accent py-2 border-b border-border/40"
+                      >
+                        Admin Dashboard
+                      </Link>
+                    </>
+                  )}
+                  {isAuthenticated && (
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="hover:text-accent py-2 border-b border-border/40"
+                    >
+                      User Dashboard
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted font-medium">Appearance</span>
+                  <ThemeSwitcher compact />
+                </div>
+                {isAuthenticated ? (
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+                    className="w-full py-2.5 rounded-xl bg-danger/10 border border-danger/25 text-xs text-danger font-bold flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                  >
+                    <LogOut className="h-4 w-4" /> Logout
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Link
+                      href="/auth"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-center text-xs font-bold text-ink min-h-[44px] flex items-center justify-center"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/auth?mode=register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-accent text-on-accent text-center text-xs font-bold min-h-[44px] flex items-center justify-center"
+                    >
+                      Register
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
@@ -2391,81 +2668,78 @@ function HeroTyped() {
   );
 }
 
-/* ─── KaiStoryCard: Kai projects-style card with hover overlay ─── */
+/* ─── MOBILE STORY CARD FIX ─── */
 function KaiStoryCard({ story }: { story: Story }) {
   return (
-    <motion.div
-      variants={scrollReveal}
-      whileHover={{ y: -6 }}
-      className="kai-story-card group relative overflow-hidden rounded-xl border border-border/20 bg-surface/10 backdrop-blur transition-all duration-300 hover:border-accent/30 hover:shadow-soft aspect-[3/4] w-150 h-250"
-    >
-      {/* ===== बैकग्राउंड ग्लो (होवर) ===== */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+    <Link href={`/read/${story.slug}`} className="block">
+      <motion.div
+        variants={scrollReveal}
+        whileHover={{ y: -6 }}
+        className="kai-story-card group relative overflow-hidden rounded-xl border border-border/20 bg-surface/10 backdrop-blur transition-all duration-300 hover:border-accent/30 hover:shadow-soft aspect-[3/4] w-[140px] h-[210px] md:w-full md:h-auto cursor-pointer"
+      >
+        {/* ===== बैकग्राउंड ग्लो (होवर) ===== */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* ===== पोस्टर इमेज (फुल हाइट और विड्थ) ===== */}
-      <div className="absolute inset-0 h-full w-full overflow-hidden">
-        {story.cover ? (
-          <Image
-            src={story.cover}
-            alt={story.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center"
-            style={{ background: "linear-gradient(135deg, var(--surface-soft) 0%, var(--paper) 100%)" }}
-          >
-            <BookOpen className="h-12 w-12 opacity-20 text-accent" />
-          </div>
-        )}
+        {/* ===== पोस्टर इमेज ===== */}
+        <div className="absolute inset-0 h-full w-full overflow-hidden">
+          {story.cover ? (
+            <Image
+              src={story.cover}
+              alt={story.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div
+              className="flex h-full w-full items-center justify-center"
+              style={{ background: "linear-gradient(135deg, var(--surface-soft) 0%, var(--paper) 100%)" }}
+            >
+              <BookOpen className="h-12 w-12 opacity-20 text-accent" />
+            </div>
+          )}
 
-        {/* इमेज पर डार्क ओवरले (टेक्स्ट को पढ़ने योग्य बनाने के लिए) */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent" />
-      </div>
+          {/* डार्क ओवरले */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
+        </div>
 
-      {/* ===== टॉप-राइट/लेफ्ट: बैज + रेटिंग (पहले की तरह) ===== */}
-      <div className="absolute left-3 top-3 flex w-[calc(100%-24px)] items-start justify-between z-10">
-        {story.genre ? (
-          <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-            {story.genre}
+        {/* ===== टॉप-राइट/लेफ्ट: बैज + रेटिंग ===== */}
+        <div className="absolute left-3 top-3 flex w-[calc(100%-24px)] items-start justify-between z-10">
+          {story.genre ? (
+            <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] md:text-xs font-semibold text-white backdrop-blur">
+              {story.genre}
+            </span>
+          ) : (
+            <div />
+          )}
+          {story.rating && (
+            <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] md:text-sm font-medium text-amber-400 backdrop-blur-sm">
+              <Star className="h-3 w-3 md:h-3.5 md:w-3.5 fill-current" />
+              <span>{story.rating}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ===== बॉटम: नाम और जैनर (फ्लोटिंग) ===== */}
+        <div className="absolute bottom-4 left-3 right-3 z-10 flex flex-col pointer-events-none">
+          <h3 className="font-display text-sm md:text-2xl font-bold leading-tight text-white drop-shadow-lg line-clamp-2">
+            {story.title}
+          </h3>
+          {story.genre && (
+            <p className="text-[10px] md:text-sm font-medium text-white/70 drop-shadow-md mt-0.5 md:mt-1">
+              {story.genre}
+            </p>
+          )}
+        </div>
+
+        {/* ===== रीड स्टोरी बटन (मोबाइल पर हमेशा दिखेगा, डेस्कटॉप पर केवल होवर पर) ===== */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 md:bg-black/65 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
+          <span className="home-card-cta relative inline-flex items-center justify-center gap-1 md:gap-2 rounded-full bg-accent px-4 py-1.5 md:px-6 md:py-2.5 text-[10px] md:text-sm font-semibold text-paper shadow-lg">
+            <span>Read Story</span>
+            <ArrowRight className="h-3 w-3 md:h-4 md:w-4" />
           </span>
-        ) : (
-          <div />
-        )}
-        {story.rating && (
-          <div className="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-sm font-medium text-amber-400 backdrop-blur-sm">
-            <Star className="h-3.5 w-3.5 fill-current" />
-            <span>{story.rating}</span>
-          </div>
-        )}
-      </div>
-
-      {/* ===== बॉटम: नाम और जैनर (फ्लोटिंग) ===== */}
-      <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col pointer-events-none">
-        {/* नाम और जैनर (लेफ्ट बॉटम और कवर के ऊपर फ्लोट करते हुए) */}
-        <h3 className="font-display text-xl md:text-2xl font-bold leading-tight text-white drop-shadow-lg line-clamp-2">
-          {story.title}
-        </h3>
-        {story.genre && (
-          <p className="text-xs md:text-sm font-medium text-white/80 drop-shadow-md mt-1">
-            {story.genre}
-          </p>
-        )}
-      </div>
-
-      {/* ===== होवर ओवरले: रीड स्टोरी बटन (परमानेन्ट नहीं, केवल होवर पर) ===== */}
-      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <Link
-          href={`/read/${story.slug}`}
-          className="home-card-cta relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-6 py-2.5 text-md font-semibold text-paper shadow-lg transition duration-200 hover:scale-105"
-        >
-          <span className="relative z-10">Read Story</span>
-          <ArrowRight className="relative z-10 h-4 w-4" />
-          <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-        </Link>
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </Link>
   );
 }
 

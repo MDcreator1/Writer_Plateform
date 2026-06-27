@@ -463,7 +463,6 @@ textarea {
 @layer components {
 
   .input-underline {
-    width: 100%;
     background: transparent;
     border: none;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
@@ -1257,4 +1256,4 @@ body.home-scrollbar-hidden::-webkit-scrollbar {
   position: absolute;
   background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 70%);
   border-radius: 50%;
-}
+}

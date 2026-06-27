@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Story } from "@/lib/content";
 import { StoryDeleteModal, type DeleteModalStory } from "@/components/story-delete-modal";
 
-const DEFAULT_STUDIO_URL = "http://localhost:5500/story-novel-project-editor.html";
+const DEFAULT_STUDIO_URL = "/admin/studio";
 
 function buildStudioUrl(
   studioBaseUrl: string,
@@ -14,9 +14,10 @@ function buildStudioUrl(
   input: { storyId?: string; storyTitle?: string; projectId?: string }
 ) {
   try {
-    const url = new URL(studioBaseUrl || DEFAULT_STUDIO_URL);
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const url = new URL(studioBaseUrl || DEFAULT_STUDIO_URL, base);
     url.searchParams.set("platformAction", input.storyId ? "manage-chapters" : "open-studio");
-    url.searchParams.set("platformUrl", platformUrl || "http://localhost:3000");
+    url.searchParams.set("platformUrl", platformUrl || base);
     if (input.storyId) url.searchParams.set("platformStoryId", input.storyId);
     if (input.storyTitle) url.searchParams.set("platformStoryTitle", input.storyTitle);
     if (input.projectId) url.searchParams.set("platformProjectId", input.projectId);
@@ -136,8 +137,6 @@ export function UnpublishedStoriesSection({ stories, studioBaseUrl, platformUrl,
                   <a
                     className="lm-btn-secondary admin-story-chapters-btn py-2 text-sm"
                     href={studioHref}
-                    target="writer_studio"
-                    rel="noreferrer"
                   >
                     <BookOpen className="h-4 w-4" />
                     Open in Studio

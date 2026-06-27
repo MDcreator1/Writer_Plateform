@@ -8,6 +8,62 @@ function formatDate(value: Date) {
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(value);
 }
 
+type StoryEngagementMetrics = {
+  readsCount: number;
+  ratingAverage: number;
+  ratingsCount: number;
+};
+
+function emptyStoryEngagement(): StoryEngagementMetrics {
+  return {
+    readsCount: 0,
+    ratingAverage: 0,
+    ratingsCount: 0
+  };
+}
+
+async function getStoryEngagementMetrics(storyIds: string[]) {
+  const metrics = new Map<string, StoryEngagementMetrics>();
+  storyIds.forEach((storyId) => metrics.set(storyId, emptyStoryEngagement()));
+
+  if (storyIds.length === 0) {
+    return metrics;
+  }
+
+  const [readsByStory, ratingsByStory] = await Promise.all([
+    prisma.readingHistory.groupBy({
+      by: ["storyId"],
+      where: { storyId: { in: storyIds } },
+      _count: { _all: true }
+    }),
+    prisma.rating.groupBy({
+      by: ["storyId"],
+      where: { storyId: { in: storyIds } },
+      _avg: { value: true },
+      _count: { _all: true }
+    })
+  ]);
+
+  readsByStory.forEach((row) => {
+    const current = metrics.get(row.storyId) ?? emptyStoryEngagement();
+    metrics.set(row.storyId, {
+      ...current,
+      readsCount: row._count._all
+    });
+  });
+
+  ratingsByStory.forEach((row) => {
+    const current = metrics.get(row.storyId) ?? emptyStoryEngagement();
+    metrics.set(row.storyId, {
+      ...current,
+      ratingAverage: row._avg.value ?? 0,
+      ratingsCount: row._count._all
+    });
+  });
+
+  return metrics;
+}
+
 export async function getAdminDashboardData(searchQuery = "") {
   const query = searchQuery.trim();
   const searchWhere: Prisma.PaymentWhereInput = query
@@ -34,22 +90,10 @@ export async function getAdminDashboardData(searchQuery = "") {
     chaptersCount,
     paidAggregate,
     failedPaymentsCount,
-    payments,
-    stories,
-    coinPackages,
-    studioProjects,
-    subscriptionPayments,
-    monthlyRevenuePayments,
     pendingRefundsCount,
     newRegistrationsCount,
     totalUsersCount,
-    purchasingUsersCount,
-    paymentsIn30Days,
-    purchasesIn30Days,
-    usersIn30Days,
-    storyPopularityData,
-    mostViewedChaptersData,
-    subscriptionStats
+    purchasingUsersCount
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { status: "ACTIVE" } }),
@@ -59,6 +103,39 @@ export async function getAdminDashboardData(searchQuery = "") {
     prisma.chapter.count(),
     prisma.payment.aggregate({ where: { status: "PAID" }, _sum: { amountCents: true, coinsAdded: true } }),
     prisma.payment.count({ where: { status: "FAILED" } }),
+    prisma.payment.count({
+      where: {
+        status: "PENDING",
+        rawPayload: {
+          path: ["refundRequested"],
+          equals: true
+        }
+      }
+    }),
+    prisma.user.count({ where: { createdAt: { gte: last30Days } } }),
+    prisma.user.count(),
+    prisma.user.count({
+      where: {
+        payments: {
+          some: { status: "PAID" }
+        }
+      }
+    })
+  ]);
+
+  const [
+    payments,
+    dbStories,
+    coinPackages,
+    studioProjects,
+    subscriptionPayments,
+    monthlyRevenuePayments,
+    paymentsIn30Days,
+    purchasesIn30Days,
+    usersIn30Days,
+    mostViewedChaptersData,
+    subscriptionStats
+  ] = await Promise.all([
     prisma.payment.findMany({
       where: searchWhere,
       include: { user: true, coinPackage: true },
@@ -66,9 +143,12 @@ export async function getAdminDashboardData(searchQuery = "") {
       take: 40
     }),
     prisma.story.findMany({
-      include: { chapters: { where: { status: { not: "TRASH" } }, orderBy: { number: "asc" } } },
+      include: {
+        chapters: { where: { status: { not: "TRASH" } }, orderBy: { number: "asc" } },
+        _count: { select: { bookmarks: true, comments: true } }
+      },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
-    }).then(dbStories => dbStories.map(s => mapDbStoryToCard(s))),
+    }),
     prisma.coinPackage.findMany({
       orderBy: { priceCents: "asc" }
     }),
@@ -101,24 +181,6 @@ export async function getAdminDashboardData(searchQuery = "") {
       where: { status: "PAID", createdAt: { gte: last30Days } },
       _sum: { amountCents: true }
     }),
-    prisma.payment.count({
-      where: {
-        status: "PENDING",
-        rawPayload: {
-          path: ["refundRequested"],
-          equals: true
-        }
-      }
-    }),
-    prisma.user.count({ where: { createdAt: { gte: last30Days } } }),
-    prisma.user.count(),
-    prisma.user.count({
-      where: {
-        payments: {
-          some: { status: "PAID" }
-        }
-      }
-    }),
     prisma.payment.findMany({
       where: { status: "PAID", createdAt: { gte: last30Days } },
       select: { amountCents: true, coinsAdded: true, createdAt: true }
@@ -130,16 +192,6 @@ export async function getAdminDashboardData(searchQuery = "") {
     prisma.user.findMany({
       where: { createdAt: { gte: last30Days } },
       select: { createdAt: true }
-    }),
-    prisma.story.findMany({
-      select: {
-        id: true,
-        title: true,
-        readsCount: true,
-        _count: { select: { bookmarks: true, comments: true } }
-      },
-      orderBy: { readsCount: "desc" },
-      take: 5
     }),
     prisma.chapter.findMany({
       orderBy: {
@@ -198,6 +250,28 @@ export async function getAdminDashboardData(searchQuery = "") {
   const conversionRate = totalUsersCount > 0 ? (purchasingUsersCount / totalUsersCount) * 100 : 0;
   const subscriptionRevenue = (subscriptionPayments._sum.amountCents || 0) / 100;
   const monthlyRevenue = (monthlyRevenuePayments._sum.amountCents || 0) / 100;
+  const storyEngagementMetrics = await getStoryEngagementMetrics(dbStories.map((story) => story.id));
+  const stories = dbStories.map((story) => {
+    const metrics = storyEngagementMetrics.get(story.id) ?? emptyStoryEngagement();
+    return mapDbStoryToCard({
+      ...story,
+      readsCount: metrics.readsCount,
+      ratingAverage: metrics.ratingAverage
+    });
+  });
+  const storyPopularity = dbStories
+    .map((story) => {
+      const metrics = storyEngagementMetrics.get(story.id) ?? emptyStoryEngagement();
+      return {
+        id: story.id,
+        title: story.title,
+        reads: metrics.readsCount,
+        bookmarks: story._count.bookmarks,
+        comments: story._count.comments
+      };
+    })
+    .sort((a, b) => b.reads - a.reads || b.bookmarks - a.bookmarks || b.comments - a.comments)
+    .slice(0, 5);
 
   return {
     analytics: {
@@ -218,13 +292,7 @@ export async function getAdminDashboardData(searchQuery = "") {
     },
     chartData: {
       timeline: chartTimeline,
-      storyPopularity: storyPopularityData.map(s => ({
-        id: s.id,
-        title: s.title,
-        reads: s.readsCount,
-        bookmarks: s._count.bookmarks,
-        comments: s._count.comments
-      })),
+      storyPopularity,
       mostViewedChapters: mostViewedChaptersData.map(c => ({
         id: c.id,
         title: c.title,
@@ -298,10 +366,18 @@ export async function getAdminStoryDetails(storyId: string) {
 
   if (!story) return null;
 
-  const storyPurchases = await prisma.purchase.findMany({
-    where: { storyId },
-    select: { coinCost: true }
-  });
+  const [storyPurchases, realReadsCount, ratingMetrics] = await Promise.all([
+    prisma.purchase.findMany({
+      where: { storyId },
+      select: { coinCost: true }
+    }),
+    prisma.readingHistory.count({ where: { storyId } }),
+    prisma.rating.aggregate({
+      where: { storyId },
+      _avg: { value: true },
+      _count: { _all: true }
+    })
+  ]);
 
   const totalPurchases = storyPurchases.length;
   const totalRevenueCoins = storyPurchases.reduce((sum, p) => sum + p.coinCost, 0);
@@ -331,8 +407,8 @@ export async function getAdminStoryDetails(storyId: string) {
       authorName: story.authorName,
       coverUrl: story.coverUrl,
       storyType: story.storyType,
-      ratingAverage: story.ratingAverage,
-      readsCount: story.readsCount,
+      ratingAverage: ratingMetrics._avg.value ?? 0,
+      readsCount: realReadsCount,
       defaultChapterCoinPrice: story.defaultChapterCoinPrice,
       freeChapterCap: story.freeChapterCap,
       origin: story.origin,
@@ -342,7 +418,7 @@ export async function getAdminStoryDetails(storyId: string) {
       scheduledAt: story.scheduledAt,
       bookmarksCount: story._count.bookmarks,
       commentsCount: story._count.comments,
-      ratingsCount: story._count.ratings
+      ratingsCount: ratingMetrics._count._all
     },
     chapters: chaptersWithStats,
     studioProject: story.studioProject,

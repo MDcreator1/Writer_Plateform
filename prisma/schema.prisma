@@ -48,6 +48,7 @@ model User {
   phoneVerifications PhoneVerification[]
   commentReports     CommentReport[]
   subscriptions      Subscription[]
+  commentLikes       CommentLike[]
 }
 
 model AuthAccount {
@@ -367,15 +368,20 @@ model Comment {
   userId    String
   storyId   String
   chapterId String?
+  parentId  String?
   body      String
   hidden    Boolean  @default(false)
   createdAt DateTime @default(now())
   chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
   reports   CommentReport[]
+  likes     CommentLike[]
 
   @@index([storyId, chapterId])
+  @@index([parentId])
 }
 
 model Rating {
@@ -687,4 +693,16 @@ model PageLayout {
   pageName   String   @unique
   layoutName String
   updatedAt  DateTime @default(now()) @updatedAt
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId])
 }

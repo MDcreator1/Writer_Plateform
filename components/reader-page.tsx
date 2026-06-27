@@ -8,6 +8,7 @@ type ReaderUser = {
   username: string;
   emailHash: string;
   sessionId: string;
+  role?: string;
 };
 
 type ReaderPageProps = {

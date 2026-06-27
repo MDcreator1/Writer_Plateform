@@ -37,6 +37,7 @@ export type Story = {
   slug: string;
   title: string;
   genre: string;
+  genres?: string[];
   rating: number;
   reads: string;
   chapters: number;
@@ -54,6 +55,13 @@ export type Story = {
   publicationStatus?: string;
   defaultChapterCoinPrice?: number;
   freeChapterCap?: number;
+  language?: string;
+  storyLength?: string;
+  leadingGender?: string;
+  tagCategory?: string;
+  warningNotice?: string;
+  ratingAverage?: number;
+  readsCount?: number;
 };
 
 export type CoinPackage = {

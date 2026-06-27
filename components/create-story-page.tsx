@@ -107,13 +107,13 @@ export function CreateStoryPage() {
 
 function CreateStoryFormContent() {
   const searchParams = useSearchParams();
-  const paramStoryId = searchParams.get("storyId") || "";
-  const paramProjectId = searchParams.get("projectId") || "";
-  const paramTitle = searchParams.get("title") || "";
-  const paramAuthor = searchParams.get("author") || "";
-  const paramSynopsis = searchParams.get("synopsis") || "";
-  const paramLanguage = searchParams.get("language") || "";
-  const paramStoryType = searchParams.get("storyType") || "";
+  const paramStoryId = searchParams?.get("storyId") || "";
+  const paramProjectId = searchParams?.get("projectId") || "";
+  const paramTitle = searchParams?.get("title") || "";
+  const paramAuthor = searchParams?.get("author") || "";
+  const paramSynopsis = searchParams?.get("synopsis") || "";
+  const paramLanguage = searchParams?.get("language") || "";
+  const paramStoryType = searchParams?.get("storyType") || "";
 
   const [form, setForm] = useState<StoryStudioForm>(initialForm);
   const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(false);

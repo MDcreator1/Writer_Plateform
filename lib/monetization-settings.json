@@ -36,9 +36,9 @@
       "dayOfWeek": 5,
       "startTime": "10:00",
       "endTime": "23:59",
-      "enabled": true,
+      "enabled": false,
       "createdAt": "2026-06-24T06:40:13.965Z",
-      "updatedAt": "2026-06-24T06:41:56.758Z"
+      "updatedAt": "2026-06-26T08:33:24.329Z"
     }
   ]
 }

@@ -1,6 +1,5 @@
 import "server-only";
 import { PaymentStatus } from "@prisma/client";
-import { getPublishedStoryCards } from "@/lib/content-service";
 import { prisma } from "@/lib/prisma";
 
 function formatDate(value: Date) {
@@ -61,13 +60,15 @@ export async function getReaderDashboardData(userId: string) {
     walletBalance: wallet.balance,
     accountStats: {
       purchasedChapters: purchases.length,
-      favoriteStories: bookmarkCount,
-      readingHours: Math.max(1, transactions.length * 2)
+      favoriteStories: bookmarkCount
     },
     purchasedChapters: purchases.map((purchase) => ({
       id: purchase.id,
+      slug: purchase.chapter.story.slug,
       story: purchase.chapter.story.title,
+      cover: purchase.chapter.story.coverUrl,
       chapter: purchase.chapter.title,
+      chapterNumber: purchase.chapter.number,
       coins: purchase.coinCost,
       date: formatDate(purchase.createdAt)
     })),
@@ -86,7 +87,8 @@ export async function getReaderDashboardData(userId: string) {
         id: payment.id,
         date: formatDate(payment.createdAt),
         packageName,
-        paymentMethod: payment.paymentMethod || "Razorpay",
+        provider: payment.provider,
+        paymentMethod: payment.paymentMethod,
         amountPaid: payment.amountCents / 100,
         coinsReceived: payment.coinsAdded || ((payment.coinPackage?.coins || 0) + (payment.coinPackage?.bonusCoins || 0)),
         status: formatStatus(payment.status)
@@ -102,14 +104,18 @@ export async function getReaderDashboardData(userId: string) {
       id: b.id,
       slug: b.story.slug,
       title: b.story.title,
+      cover: b.story.coverUrl,
       genre: b.story.genre,
       rating: b.story.ratingAverage,
-      chapterTitle: b.chapter.title
+      chapterNumber: b.chapter.number,
+      chapterTitle: b.chapter.title,
+      date: formatDate(b.createdAt)
     })),
     readingHistory: readingHistory.map((history) => ({
       id: history.id,
       slug: history.story.slug,
       title: history.story.title,
+      cover: history.story.coverUrl,
       chapterNumber: history.chapter.number,
       chapterTitle: history.chapter.title,
       progress: history.progressPct

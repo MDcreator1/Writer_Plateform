@@ -30,7 +30,18 @@ export async function GET(request: Request) {
       }
     });
 
-    return ok(rating);
+    const likesCount = await prisma.rating.count({
+      where: {
+        storyId,
+        chapterId: chapterId || null,
+        value: 5
+      }
+    });
+
+    return ok({
+      userRating: rating,
+      likesCount
+    });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to fetch rating", 400);
   }
@@ -69,7 +80,15 @@ export async function POST(request: Request) {
       return res;
     });
 
-    return ok(rating);
+    const likesCount = await prisma.rating.count({
+      where: {
+        storyId: body.storyId,
+        chapterId: body.chapterId || null,
+        value: 5
+      }
+    });
+
+    return ok({ rating, likesCount });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to rate", 400);
   }
@@ -111,7 +130,15 @@ export async function DELETE(request: Request) {
       });
     });
 
-    return ok({ message: "Rating deleted successfully" });
+    const likesCount = await prisma.rating.count({
+      where: {
+        storyId,
+        chapterId: chapterId || null,
+        value: 5
+      }
+    });
+
+    return ok({ message: "Rating deleted successfully", likesCount });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Unable to delete rating", 400);
   }

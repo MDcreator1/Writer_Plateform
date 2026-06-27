@@ -63,6 +63,7 @@ export default async function Page({ params }: PageProps) {
       currentUser={{
         id: user.id,
         username: user.username || user.displayName || "Reader",
+        role: user.role,
         emailHash: hashEmail(user.email),
         sessionId: crypto.randomUUID()
       }}
