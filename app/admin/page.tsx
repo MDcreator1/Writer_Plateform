@@ -1,7 +1,7 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AdminPage } from "@/components/admin-page";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isPrimaryAdminUser } from "@/lib/auth";
 import { getAdminDashboardData } from "@/lib/admin-service";
 
 export const metadata: Metadata = {
@@ -24,5 +24,5 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
   const searchQuery = params?.q ?? "";
   const data = await getAdminDashboardData(searchQuery);
 
-  return <AdminPage searchQuery={searchQuery} data={data} />;
+  return <AdminPage searchQuery={searchQuery} data={data} currentAdmin={{ id: user.id, email: user.email, role: user.role, isPrimaryAdmin: isPrimaryAdminUser(user) }} />;
 }

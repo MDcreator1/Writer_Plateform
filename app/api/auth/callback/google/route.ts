@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { createSession } from "@/lib/auth";
+import { createSession, isPrimaryAdminEmail } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -83,8 +83,7 @@ export async function GET(request: Request) {
     } else {
       // Create new user (skip verification because Google email is already verified)
       const firstLetter = (name || email)[0].toUpperCase();
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "";
-      const isSystemAdmin = adminEmail && lowerEmail === adminEmail;
+      const isSystemAdmin = isPrimaryAdminEmail(lowerEmail);
 
       user = await prisma.user.create({
         data: {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sha256 } from "@/lib/security";
-import { createSession, setSessionCookie } from "@/lib/auth";
+import { createSession, isPrimaryAdminEmail, setSessionCookie } from "@/lib/auth";
 
 const verifyOtpSchema = z.object({
   email: z.string().email(),
@@ -96,8 +96,7 @@ export async function POST(request: Request) {
         });
       }
 
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "";
-      const isSystemAdmin = adminEmail && email === adminEmail;
+      const isSystemAdmin = isPrimaryAdminEmail(email);
 
       // Create draft user
       const user = await prisma.user.create({

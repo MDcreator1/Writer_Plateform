@@ -58,6 +58,12 @@ import type { CoinPackage } from "@prisma/client";
 
 type AdminPageProps = {
   searchQuery: string;
+  currentAdmin: {
+    id: string;
+    email: string;
+    role: string;
+    isPrimaryAdmin: boolean;
+  };
   data: {
     analytics: {
       totalUsers: number;
@@ -165,6 +171,16 @@ const DISCOUNT_PERIOD_PRESETS = [
 ] as const;
 const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
 
+function getUserActionConfirmation(action: string) {
+  if (action === "suspend") return "Are you sure you want to suspend this account?";
+  if (action === "unsuspend") return "Are you sure you want to activate this account?";
+  if (action === "ban") return "Are you sure you want to block/ban this user?";
+  if (action === "force-logout") return "Are you sure you want to revoke all active sessions for this user?";
+  if (action === "promote-admin") return "Promote this user to admin? They will not be able to promote other admins.";
+  if (action === "demote-admin") return "Remove admin access from this user?";
+  return "Are you sure you want to reset email & phone verification status?";
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
@@ -210,7 +226,7 @@ function buildStudioUrl(
   }
 }
 
-export function AdminPage({ data }: AdminPageProps) {
+export function AdminPage({ data, currentAdmin }: AdminPageProps) {
   const { showToast, confirm } = useToast();
   const [activeTab, setActiveTab] = useState<"overview" | "users" | "stories" | "payments" | "moderation" | "security" | "audit" | "monetization" | "layouts">("overview");
 
@@ -225,6 +241,7 @@ export function AdminPage({ data }: AdminPageProps) {
   const [, setLoadingDetails] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<"wallet" | "purchases" | "reading" | "bookmarks">("wallet");
+  const canManageAdminRoles = currentAdmin.isPrimaryAdmin;
 
   // --- Payments management states ---
   const [payments, setPayments] = useState<any[]>([]);
@@ -641,12 +658,8 @@ export function AdminPage({ data }: AdminPageProps) {
 
   // Execute admin moderator action
   const executeUserAction = async (userId: string, action: string, e: React.MouseEvent) => {
-    const confirmationMsg =
-      action === "suspend" ? "Are you sure you want to suspend this account?" :
-        action === "unsuspend" ? "Are you sure you want to unsuspend this account?" :
-          action === "ban" ? "Are you sure you want to block/ban this user?" :
-            action === "force-logout" ? "Are you sure you want to revoke all active sessions for this user?" :
-              "Are you sure you want to reset email & phone verification status?";
+    const confirmationMsg = getUserActionConfirmation(action);
+
 
     const ok = await confirm(confirmationMsg, e.clientX, e.clientY);
     if (!ok) {
@@ -1823,11 +1836,16 @@ export function AdminPage({ data }: AdminPageProps) {
                                 <span className="text-xs text-muted font-mono">{user.email}</span>
                               </td>
                               <td className="py-4 pr-4">
-                                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold tracking-wider ${user.role === "ADMIN" ? "bg-accent-soft text-accent3" :
-                                  user.role === "AUTHOR" ? "bg-warning/10 text-warning" : "bg-surface-soft text-muted"
-                                  }`}>
-                                  {user.role}
-                                </span>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold tracking-wider ${user.role === "ADMIN" ? "bg-accent-soft text-accent3" :
+                                    user.role === "AUTHOR" ? "bg-warning/10 text-warning" : "bg-surface-soft text-muted"
+                                    }`}>
+                                    {user.role}
+                                  </span>
+                                  {user.isPrimaryAdmin ? (
+                                    <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success">Env Main</span>
+                                  ) : null}
+                                </div>
                               </td>
                               <td className="py-4 pr-4">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${user.status === "ACTIVE" ? "bg-success/15 text-success" :
@@ -1895,6 +1913,26 @@ export function AdminPage({ data }: AdminPageProps) {
                                       Unban
                                     </button>
                                   )}
+
+                                  {canManageAdminRoles && !user.isPrimaryAdmin ? (
+                                    user.role === "ADMIN" ? (
+                                      <button
+                                        disabled={actionLoading}
+                                        onClick={(e) => executeUserAction(user.id, "demote-admin", e)}
+                                        className="px-2.5 py-1 text-xs font-semibold text-soft-ink border border-border bg-surface-soft/50 rounded-lg hover:bg-surface-soft disabled:opacity-60"
+                                      >
+                                        Remove Admin
+                                      </button>
+                                    ) : (
+                                      <button
+                                        disabled={actionLoading}
+                                        onClick={(e) => executeUserAction(user.id, "promote-admin", e)}
+                                        className="px-2.5 py-1 text-xs font-semibold text-accent border border-accent/30 bg-accent-soft/40 rounded-lg hover:bg-accent-soft disabled:opacity-60"
+                                      >
+                                        Promote Admin
+                                      </button>
+                                    )
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
@@ -1937,7 +1975,12 @@ export function AdminPage({ data }: AdminPageProps) {
                               </div>
                               <strong className="block text-lg text-ink truncate">{selectedUser.user.displayName || selectedUser.user.username}</strong>
                               <span className="text-xs text-muted truncate block">{selectedUser.user.email}</span>
-                              <span className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold bg-accent-soft text-accent3 uppercase tracking-wider">{selectedUser.user.role}</span>
+                                                            <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-accent-soft text-accent3 uppercase tracking-wider">{selectedUser.user.role}</span>
+                                {selectedUser.user.isPrimaryAdmin ? (
+                                  <span className="inline-block rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success">Env Main</span>
+                                ) : null}
+                              </div>
                             </div>
 
                             <div className="space-y-2 text-sm text-ink">
@@ -2024,6 +2067,30 @@ export function AdminPage({ data }: AdminPageProps) {
                             <h4 className="font-semibold text-ink text-sm flex items-center gap-1.5"><ShieldAlert className="h-4 w-4 text-accent" /> Moderator Quick Controls</h4>
 
                             <div className="grid gap-2 text-xs">
+                              {canManageAdminRoles && !selectedUser.user.isPrimaryAdmin ? (
+                                selectedUser.user.role === "ADMIN" ? (
+                                  <button
+                                    disabled={actionLoading}
+                                    onClick={(e) => executeUserAction(selectedUser.user.id, "demote-admin", e)}
+                                    className="w-full lm-btn-secondary py-2 text-soft-ink font-semibold text-center"
+                                  >
+                                    Remove Admin Access
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled={actionLoading}
+                                    onClick={(e) => executeUserAction(selectedUser.user.id, "promote-admin", e)}
+                                    className="w-full lm-btn-secondary py-2 text-accent font-semibold text-center hover:bg-accent-soft/60"
+                                  >
+                                    Promote to Admin
+                                  </button>
+                                )
+                              ) : selectedUser.user.isPrimaryAdmin ? (
+                                <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-center font-semibold text-success">
+                                  Main admin is controlled by environment variables.
+                                </div>
+                              ) : null}
+
                               {selectedUser.user.status === "ACTIVE" ? (
                                 <button
                                   disabled={actionLoading}

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isPrimaryAdminEmail, isPrimaryAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -80,7 +80,7 @@ export async function GET(
     ]);
 
     return ok({
-      user,
+      user: { ...user, isPrimaryAdmin: isPrimaryAdminEmail(user.email) },
       transactions,
       purchases,
       bookmarks,
@@ -112,6 +112,46 @@ export async function POST(
 
     if (!action) {
       return fail("Action is required", 400);
+    }
+
+    if (action === "promote-admin" || action === "demote-admin") {
+      if (!isPrimaryAdminUser(admin)) {
+        return fail("Only the primary admin configured in environment variables can manage admin roles", 403, "PRIMARY_ADMIN_REQUIRED");
+      }
+
+      if (isPrimaryAdminEmail(targetUser.email)) {
+        return fail("Primary admin role is locked to environment variables", 400, "PRIMARY_ADMIN_ENV_LOCKED");
+      }
+
+      const nextRole = action === "promote-admin" ? "ADMIN" : "READER";
+      const actionName = action === "promote-admin" ? "PROMOTE_USER_TO_ADMIN" : "DEMOTE_ADMIN_TO_READER";
+      const resultMessage = action === "promote-admin" ? "User promoted to admin successfully" : "Admin access removed successfully";
+
+      if (targetUser.role === nextRole) {
+        return ok({ message: resultMessage });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { role: nextRole }
+        });
+        await tx.adminLog.create({
+          data: {
+            adminId: admin.id,
+            action: actionName,
+            target: userId,
+            metadata: {
+              username: targetUser.username,
+              email: targetUser.email,
+              previousRole: targetUser.role,
+              nextRole
+            }
+          }
+        });
+      });
+
+      return ok({ message: resultMessage });
     }
 
     return await prisma.$transaction(async (tx) => {

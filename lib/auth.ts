@@ -7,6 +7,30 @@ import { signSessionToken, verifySessionToken } from "@/lib/jwt";
 
 export const SESSION_COOKIE = "velora_session";
 
+function splitConfiguredEmails(value: string | undefined) {
+  return (value || "")
+    .split(/[;,]/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function getPrimaryAdminEmails() {
+  return Array.from(new Set([
+    ...splitConfiguredEmails(process.env.ADMIN_EMAIL),
+    ...splitConfiguredEmails(process.env.ADMIN_EMAILS),
+    ...splitConfiguredEmails(process.env.PRIMARY_ADMIN_EMAIL),
+    ...splitConfiguredEmails(process.env.PRIMARY_ADMIN_EMAILS)
+  ]));
+}
+
+export function isPrimaryAdminEmail(email: string | null | undefined) {
+  if (!email) return false;
+  return getPrimaryAdminEmails().includes(email.trim().toLowerCase());
+}
+
+export function isPrimaryAdminUser(user: { email?: string | null; role?: string | null } | null | undefined) {
+  return Boolean(user?.role === "ADMIN" && isPrimaryAdminEmail(user.email));
+}
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12);
 }
@@ -83,9 +107,8 @@ export async function getCurrentUser() {
       return null;
     }
 
-    // Dynamically elevate to ADMIN if configured in .env
-    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "";
-    if (adminEmail && session.user.email.toLowerCase() === adminEmail && session.user.role !== "ADMIN") {
+    // Dynamically elevate primary admins configured in env variables.
+    if (isPrimaryAdminEmail(session.user.email) && session.user.role !== "ADMIN") {
       const updatedUser = await prisma.user.update({
         where: { id: session.user.id },
         data: { role: "ADMIN" }

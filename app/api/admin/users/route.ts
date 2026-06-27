@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isPrimaryAdminEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  if (role) {
-    where.role = role as any;
+  if (role === "READER" || role === "AUTHOR" || role === "ADMIN") {
+    where.role = role;
   }
 
-  if (status) {
-    where.status = status as any;
+  if (status === "ACTIVE" || status === "SUSPENDED" || status === "BANNED") {
+    where.status = status;
   }
 
   try {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     });
 
-    return ok(users);
+    return ok(users.map((user) => ({ ...user, isPrimaryAdmin: isPrimaryAdminEmail(user.email) })));
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Unable to fetch users", 500);
   }
