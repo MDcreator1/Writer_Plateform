@@ -2,10 +2,11 @@
   "name": "premium-fiction-platform",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
+"scripts": {
   "dev": "next dev",
-  "build": "prisma generate && prisma migrate deploy && next build",
+  "build": "prisma generate && next build",
   "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
+  "migrate:deploy": "prisma migrate deploy",
   "studio:backfill": "tsx scripts/backfill-studio-workspaces.ts",
   "lint": "eslint .",
   "prisma:generate": "prisma generate",
