@@ -16,7 +16,6 @@ import {
   Users
 } from "lucide-react";
 
-import coverImage from "@/lib/story_covers/image.png";
 
 export type ChapterState = "free" | "locked" | "unlocked";
 
@@ -117,7 +116,7 @@ export const stories: Story[] = [
     description:
       "A royal archivist discovers that forbidden love letters are actually maps to a vanished kingdom.",
     author: "Aarohi Vane",
-    cover: coverImage.src,
+    cover: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=85",
     accent: "from-wine to-velvet",
     tags: ["Royal intrigue", "Slow burn", "Mystery"],
     chapterList: Array.from({ length: 14 }).map((_, index) => {
