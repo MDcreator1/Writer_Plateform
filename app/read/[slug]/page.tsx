@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { ReaderDevtoolsHider } from "@/components/reader-devtools-hider";
 import { ReaderPage } from "@/components/reader-page";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedStoryCardBySlug, getPublishedStoryCards, getReaderStoryBySlug, getStoryStudioData } from "@/lib/content-service";
@@ -54,19 +55,22 @@ export default async function Page({ params }: PageProps) {
   const recommendations = allStories.filter((s) => s.id !== readerStory.story.id);
 
   return (
-    <ReaderPage
-      story={readerStory.story}
-      initialCoinBalance={readerStory.walletBalance}
-      activeLayout={layoutConfig?.layoutName ?? "classic"}
-      recommendations={recommendations}
-      studioData={studioData}
-      currentUser={{
-        id: user.id,
-        username: user.username || user.displayName || "Reader",
-        role: user.role,
-        emailHash: hashEmail(user.email),
-        sessionId: crypto.randomUUID()
-      }}
-    />
+    <>
+      <ReaderDevtoolsHider />
+      <ReaderPage
+        story={readerStory.story}
+        initialCoinBalance={readerStory.walletBalance}
+        activeLayout={layoutConfig?.layoutName ?? "classic"}
+        recommendations={recommendations}
+        studioData={studioData}
+        currentUser={{
+          id: user.id,
+          username: user.username || user.displayName || "Reader",
+          role: user.role,
+          emailHash: hashEmail(user.email),
+          sessionId: crypto.randomUUID()
+        }}
+      />
+    </>
   );
 }

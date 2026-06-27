@@ -775,7 +775,7 @@ export default function ClassicLayout({ story, initialCoinBalance, currentUser }
                 </button>
                 {coinBalance < activeChapter.coinPrice ? (
                   <Link
-                    href="/#coins"
+                    href="/coins"
                     className="group inline-flex items-center gap-1.5 text-sm font-semibold text-accent transition hover:text-accent2"
                   >
                     <Coins className="h-4 w-4" />

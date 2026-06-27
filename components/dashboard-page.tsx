@@ -266,8 +266,57 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
         </nav>
       </header>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-5 py-8 md:py-12">
-        <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }} className="rounded-lg border border-border/70 bg-surface/70 p-6 shadow-luxury backdrop-blur-2xl md:p-8">
+      <section className="relative z-10 px-4 pt-4 md:hidden">
+        <div className="rounded-lg border border-border/70 bg-surface/75 p-4 shadow-luxury backdrop-blur-2xl">
+          <div className="flex items-start gap-3">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-accent via-accent2 to-accent3 text-base font-bold text-on-accent shadow-soft">
+              {initials(displayName)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-accent">Reader Profile</p>
+              <h1 className="mt-1 truncate font-display text-2xl font-semibold text-ink">{displayName}</h1>
+              <p className="mt-1 truncate text-xs text-soft-ink">{user.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full border border-border/70 bg-surface/55 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted">{user.role}</span>
+                <span className="rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-success">{user.status}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border/70 bg-surface-soft/70 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">Wallet</p>
+              <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatNumber(data.walletBalance)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent">Coins</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-surface-soft/70 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">Member Since</p>
+              <p className="mt-2 text-sm font-bold text-ink">{memberSince || "New Reader"}</p>
+              <p className="mt-1 text-xs text-muted">{data.activeSubscription ? `${data.activeSubscription.planType} Pass` : "No active pass"}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link href="/stories" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-on-accent shadow-soft">
+              <BookOpen className="h-4 w-4" />
+              Stories
+            </Link>
+            <Link href="/coins" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
+              <Coins className="h-4 w-4" />
+              Coins
+            </Link>
+            {latestHistory ? (
+              <Link href={`/read/${latestHistory.slug}`} className="col-span-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface/60 px-3 py-2 text-xs font-bold text-ink">
+                <History className="h-4 w-4" />
+                Resume: Chapter {latestHistory.chapterNumber}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 md:px-5 md:py-12">
+        <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }} className="hidden rounded-lg border border-border/70 bg-surface/70 p-6 shadow-luxury backdrop-blur-2xl md:block md:p-8">
           <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-accent">
@@ -306,7 +355,7 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
           </div>
         </motion.section>
 
-        <section className="mt-8 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+        <section className="mt-6 grid gap-5 md:mt-8 lg:grid-cols-[0.8fr_1.2fr]">
           <motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} className="rounded-lg border border-border/70 bg-surface/55 p-5 backdrop-blur-xl">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -333,7 +382,7 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
               </div>
             </motion.div>
           ) : (
-            <EmptyState icon={Crown} title="No active membership" actionHref="/" actionLabel="View Plans" />
+            <EmptyState icon={Crown} title="No active membership" actionHref="/coins" actionLabel="View Plans" />
           )}
         </section>
 

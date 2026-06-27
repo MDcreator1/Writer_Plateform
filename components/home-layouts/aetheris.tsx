@@ -1211,13 +1211,13 @@ export default function AetherisSpatialLayout({
     menuItems.push({ label: "Telemetry", href: "#showcase" });
   }
 
-  menuItems.push({ label: "Chronicles", href: "#story" });
+  menuItems.push({ label: "Stories", href: "/stories" });
 
   if (isAdmin) {
     menuItems.push({ label: "Protection", href: "#admin-protection" });
     menuItems.push({ label: "Admin Console", href: "/admin" });
   }
-  menuItems.push({ label: "Neural Uplink", href: "#cta" });
+  menuItems.push({ label: "Coins", href: "/coins" });
 
   // Showcase spec maps
   const showcaseTabs = {
@@ -2125,6 +2125,13 @@ export default function AetherisSpatialLayout({
                     <p className="text-white/50 text-sm md:text-base leading-relaxed font-light">
                       Velora runs on a fully transparent creator economy. Purchase packages or activate subscription passes to unlock chapters permanently, supporting your writers directly.
                     </p>
+                    <Link
+                      href="/coins"
+                      className="mt-6 hidden items-center gap-2 rounded-full border border-teal-400/30 bg-white/5 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.22em] text-teal-300 transition hover:border-teal-300 hover:bg-teal-400/10 md:inline-flex"
+                    >
+                      More Information
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
                   </div>
 
                   {/* Two columns: Subscription Passes + Coin Packages */}

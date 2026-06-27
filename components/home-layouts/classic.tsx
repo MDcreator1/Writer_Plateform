@@ -1302,10 +1302,10 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
           </Link>
           {isAuthenticated ? (
             <div className="home-nav-links hidden items-center gap-7 text-sm font-semibold text-soft-ink lg:flex">
-              <a href="#stories" className="home-nav-link transition hover:text-accent text-xl">
+              <a href="/stories" className="home-nav-link transition hover:text-accent text-xl">
                 Stories
               </a>
-              <a href="#coins" className="home-nav-link transition hover:text-accent text-xl">
+              <a href="/coins" className="home-nav-link transition hover:text-accent text-xl">
                 Coins
               </a>
               {isAdmin ? (
@@ -1487,7 +1487,7 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                 </Link>
               ) : (
                 <a
-                  href="#coins"
+                  href="/coins"
                   className="hero-cta-secondary inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised/60 px-7 py-3.5 text-sm font-semibold text-ink backdrop-blur transition-all duration-300 hover:border-accent hover:text-accent"
                 >
                   Buy Coins
@@ -1718,6 +1718,15 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                   viewport={{ once: true }}
                   className="mx-auto mt-6 h-px w-24 origin-center rounded-full bg-gradient-to-r from-transparent via-accent to-transparent"
                 />
+                <div className="mt-7 hidden justify-center md:flex">
+                  <Link
+                    href="/coins"
+                    className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-surface-raised/60 px-6 py-3 text-sm font-semibold text-ink backdrop-blur transition hover:border-accent hover:text-accent"
+                  >
+                    More Information
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </motion.div>
 
               {/* Two-column: wallet preview + packages */}
@@ -2403,7 +2412,7 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                 {/* Nav Links inside mobile drawer */}
                 <div className="flex flex-col gap-1">
                   <a
-                    href="#stories"
+                    href="/stories"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
                   >
@@ -2411,7 +2420,7 @@ export default function HomeClassicLayout({ stories, coinPackages, isAuthenticat
                     Stories
                   </a>
                   <a
-                    href="#coins"
+                    href="/coins"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-soft-ink hover:text-ink hover:bg-surface-soft text-sm font-semibold transition"
                   >

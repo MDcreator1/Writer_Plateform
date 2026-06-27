@@ -21,31 +21,31 @@ export default async function StoriesPage() {
   const stories = await getPublishedStoryCards();
 
   return (
-    <main className="home-main min-h-screen px-5 py-8">
+    <main className="home-main min-h-screen px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-5 sm:px-5 sm:py-8">
       <div className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 rounded-2xl border border-border bg-surface-raised/70 p-5 shadow-luxury backdrop-blur-xl md:flex-row md:items-end md:justify-between">
+        <header className="flex flex-col gap-5 rounded-xl border border-border bg-surface-raised/70 p-4 shadow-luxury backdrop-blur-xl sm:rounded-2xl sm:p-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <Link href="/#stories" className="inline-flex items-center gap-2 text-sm font-semibold text-soft-ink transition hover:text-accent">
+            <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-soft-ink transition hover:text-accent">
               <ArrowLeft className="h-4 w-4" />
               Back to home
             </Link>
-            <p className="lm-eyebrow mt-6">Story Library</p>
-            <h1 className="mt-2 font-display text-4xl font-semibold text-ink md:text-6xl">All published stories</h1>
-            <p className="mt-3 max-w-2xl text-soft-ink">
+            <p className="lm-eyebrow mt-5 sm:mt-6">Story Library</p>
+            <h1 className="mt-2 font-display text-3xl font-semibold leading-tight text-ink sm:text-4xl md:text-6xl">All published stories</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-soft-ink sm:text-base">
               Every live story is loaded from the database with chapter counts, free samples, paid chapters, and rating signals.
             </p>
           </div>
-          <div className="rounded-full border border-accent/30 bg-accent-soft px-4 py-2 text-sm font-semibold text-accent2">
+          <div className="w-fit rounded-full border border-accent/30 bg-accent-soft px-4 py-2 text-sm font-semibold text-accent2">
             {stories.length} stories live
           </div>
         </header>
 
-        <section className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mt-5 grid gap-4 sm:mt-8 sm:grid-cols-2 lg:grid-cols-3">
           {stories.map((story) => (
-            <article key={story.id} className="group overflow-hidden rounded-2xl border border-border bg-surface-raised/70 shadow-soft backdrop-blur-xl transition hover:-translate-y-1 hover:border-accent/50 hover:shadow-luxury">
-              <div className="relative h-72 overflow-hidden">
+            <article key={story.id} className="group overflow-hidden rounded-xl border border-border bg-surface-raised/70 shadow-soft backdrop-blur-xl transition hover:-translate-y-1 hover:border-accent/50 hover:shadow-luxury sm:rounded-2xl">
+              <div className="relative h-56 overflow-hidden sm:h-72">
                 {story.cover ? (
-                  <Image src={story.cover} alt={story.title} fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />
+                  <Image src={story.cover} alt={story.title} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 via-accent2/15 to-surface-soft text-accent font-display text-7xl font-bold select-none border-b border-border shadow-inner">
                     <span className="drop-shadow-[0_4px_12px_rgba(var(--accent-rgb),0.35)]">
@@ -64,11 +64,11 @@ export default async function StoriesPage() {
                   </span>
                 </div>
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h2 className="font-display text-2xl font-semibold text-white">{story.title}</h2>
+                  <h2 className="font-display text-xl font-semibold leading-tight text-white sm:text-2xl">{story.title}</h2>
                   <p className="mt-1 text-sm text-white/80">By {story.author}</p>
                 </div>
               </div>
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 <p className="line-clamp-3 text-sm leading-6 text-soft-ink">{story.description}</p>
                 <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs text-muted">
                   <span className="rounded-lg bg-surface-soft px-2 py-2"><b className="block text-base text-ink">{story.chapters}</b>chapters</span>

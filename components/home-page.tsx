@@ -26,7 +26,8 @@ import {
   X,
   Home,
   Compass,
-  Wallet
+  Wallet,
+  Bookmark
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -1301,7 +1302,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           <span className="font-display text-base font-bold text-ink">Velora</span>
         </Link>
         <div className="flex items-center gap-3">
-          <a href="#coins" className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft/70 px-2.5 py-1 text-xs font-bold text-accent">
+          <a href="/coins" className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft/70 px-2.5 py-1 text-xs font-bold text-accent">
             <Coins className="h-3.5 w-3.5" />
             <span>Coins</span>
           </a>
@@ -1361,10 +1362,10 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           </Link>
           {isAuthenticated ? (
             <div className="home-nav-links hidden items-center gap-7 text-sm font-semibold text-soft-ink lg:flex">
-              <a href="#stories" className="home-nav-link transition hover:text-accent text-xl">
+              <a href="/stories" className="home-nav-link transition hover:text-accent text-xl">
                 Stories
               </a>
-              <a href="#coins" className="home-nav-link transition hover:text-accent text-xl">
+              <a href="/coins" className="home-nav-link transition hover:text-accent text-xl">
                 Coins
               </a>
               {isAdmin ? (
@@ -1503,7 +1504,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                 </Link>
               ) : (
                 <a
-                  href="#coins"
+                  href="/coins"
                   className="flex-1 py-2 text-center rounded-lg border border-border bg-surface-soft/60 text-[11px] font-bold text-ink flex items-center justify-center min-h-[40px]"
                 >
                   Buy Coins
@@ -1604,7 +1605,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                 </Link>
               ) : (
                 <a
-                  href="#coins"
+                  href="/coins"
                   className="hero-cta-secondary inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised/60 px-7 py-3.5 text-sm font-semibold text-ink backdrop-blur transition-all duration-300 hover:border-accent hover:text-accent"
                 >
                   Buy Coins
@@ -1837,6 +1838,15 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                   viewport={{ once: true }}
                   className="mx-auto mt-6 h-px w-24 origin-center rounded-full bg-gradient-to-r from-transparent via-accent to-transparent"
                 />
+                <div className="mt-7 hidden justify-center md:flex">
+                  <Link
+                    href="/coins"
+                    className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-surface-raised/60 px-6 py-3 text-sm font-semibold text-ink backdrop-blur transition hover:border-accent hover:text-accent"
+                  >
+                    More Information
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </motion.div>
 
               {/* Two-column: wallet preview + packages */}
@@ -2488,18 +2498,18 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           <Home className="h-5 w-5" />
           <span>Home</span>
         </a>
-        <a href="#stories" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+        <a href="/stories" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
           <BookOpen className="h-5 w-5" />
           <span>Stories</span>
         </a>
-        <a href="#coins" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+        <a href="/coins" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
           <Coins className="h-5 w-5" />
-          <span>Wallet</span>
+          <span>Coins</span>
         </a>
-        <a href="#coins" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
-          <Crown className="h-5 w-5" />
-          <span>Offers</span>
-        </a>
+        <Link href="/library" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <Bookmark className="h-5 w-5" />
+          <span>Library</span>
+        </Link>
         {isAuthenticated ? (
           <Link href="/dashboard" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
             <UserCircle className="h-5 w-5" />
@@ -2550,14 +2560,14 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                     Home
                   </a>
                   <a
-                    href="#stories"
+                    href="/stories"
                     onClick={() => setMobileMenuOpen(false)}
                     className="hover:text-accent py-2 border-b border-border/40"
                   >
                     Stories
                   </a>
                   <a
-                    href="#coins"
+                    href="/coins"
                     onClick={() => setMobileMenuOpen(false)}
                     className="hover:text-accent py-2 border-b border-border/40"
                   >
