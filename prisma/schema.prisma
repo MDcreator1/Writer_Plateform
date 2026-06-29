@@ -41,6 +41,7 @@ model User {
   readingHistory     ReadingHistory[]
   readingSessions    ReadingSession[]
   sessions           Session[]
+  stories            Story[]
   suspiciousEvents   SuspiciousActivity[]
   unlockEvents       UnlockEvent[]
   verificationTokens VerificationToken[]
@@ -120,6 +121,8 @@ model Story {
   genres                  String[]           @default([])
   description             String
   authorName              String
+  authorId                String?
+  author                  User?              @relation(fields: [authorId], references: [id], onDelete: SetNull)
   coverUrl                String?
   seoTitle                String?
   seoDescription          String?
@@ -152,6 +155,8 @@ model Story {
   ratings                 Rating[]
   readingHistory          ReadingHistory[]
   studioProject           StudioProjectLink?
+
+  @@index([authorId])
 }
 
 model Chapter {
@@ -497,6 +502,7 @@ model NewsletterSubscriber {
 enum UserRole {
   READER
   AUTHOR
+  WRITER
   ADMIN
 }
 
@@ -618,6 +624,7 @@ model PhoneVerification {
   id          String    @id @default(cuid())
   phoneNumber String
   codeHash    String
+  type        String    @default("REGISTRATION")
   attempts    Int       @default(0)
   verified    Boolean   @default(false)
   expiresAt   DateTime

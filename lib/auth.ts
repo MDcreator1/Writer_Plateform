@@ -137,3 +137,23 @@ export async function requireAdmin() {
   }
   return user;
 }
+
+export function isWriter(user: { role?: string | null } | null | undefined) {
+  return user?.role === "WRITER";
+}
+
+export async function requireWriter() {
+  const user = await requireUser();
+  if (user.role !== "WRITER" && user.role !== "ADMIN") {
+    throw new Error("FORBIDDEN");
+  }
+  return user;
+}
+
+export async function requireAdminOrWriter() {
+  const user = await requireUser();
+  if (user.role !== "ADMIN" && user.role !== "WRITER") {
+    throw new Error("FORBIDDEN");
+  }
+  return user;
+}

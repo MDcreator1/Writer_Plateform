@@ -176,6 +176,8 @@ function getUserActionConfirmation(action: string) {
   if (action === "unsuspend") return "Are you sure you want to activate this account?";
   if (action === "ban") return "Are you sure you want to block/ban this user?";
   if (action === "force-logout") return "Are you sure you want to revoke all active sessions for this user?";
+  if (action === "promote-writer") return "Promote this user to writer? They will be able to create and manage their own stories.";
+  if (action === "demote-writer") return "Remove writer access from this user? Their existing stories will remain published.";
   if (action === "promote-admin") return "Promote this user to admin? They will not be able to promote other admins.";
   if (action === "demote-admin") return "Remove admin access from this user?";
   return "Are you sure you want to reset email & phone verification status?";
@@ -242,6 +244,7 @@ export function AdminPage({ data, currentAdmin }: AdminPageProps) {
   const [actionLoading, setActionLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<"wallet" | "purchases" | "reading" | "bookmarks">("wallet");
   const canManageAdminRoles = currentAdmin.isPrimaryAdmin;
+  const canManageWriterRoles = currentAdmin.role === "ADMIN";
 
   // --- Payments management states ---
   const [payments, setPayments] = useState<any[]>([]);
@@ -1933,6 +1936,26 @@ export function AdminPage({ data, currentAdmin }: AdminPageProps) {
                                       </button>
                                     )
                                   ) : null}
+
+                                  {canManageWriterRoles && !user.isPrimaryAdmin && user.role !== "ADMIN" ? (
+                                    user.role === "WRITER" ? (
+                                      <button
+                                        disabled={actionLoading}
+                                        onClick={(e) => executeUserAction(user.id, "demote-writer", e)}
+                                        className="px-2.5 py-1 text-xs font-semibold text-soft-ink border border-border bg-surface-soft/50 rounded-lg hover:bg-surface-soft disabled:opacity-60"
+                                      >
+                                        Remove Writer
+                                      </button>
+                                    ) : (
+                                      <button
+                                        disabled={actionLoading}
+                                        onClick={(e) => executeUserAction(user.id, "promote-writer", e)}
+                                        className="px-2.5 py-1 text-xs font-semibold text-accent2 border border-accent2/30 bg-accent2/10 rounded-lg hover:bg-accent2/20 disabled:opacity-60"
+                                      >
+                                        Promote Writer
+                                      </button>
+                                    )
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
@@ -2089,6 +2112,26 @@ export function AdminPage({ data, currentAdmin }: AdminPageProps) {
                                 <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-center font-semibold text-success">
                                   Main admin is controlled by environment variables.
                                 </div>
+                              ) : null}
+
+                              {canManageWriterRoles && !selectedUser.user.isPrimaryAdmin && selectedUser.user.role !== "ADMIN" ? (
+                                selectedUser.user.role === "WRITER" ? (
+                                  <button
+                                    disabled={actionLoading}
+                                    onClick={(e) => executeUserAction(selectedUser.user.id, "demote-writer", e)}
+                                    className="w-full lm-btn-secondary py-2 text-soft-ink font-semibold text-center"
+                                  >
+                                    Remove Writer Access
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled={actionLoading}
+                                    onClick={(e) => executeUserAction(selectedUser.user.id, "promote-writer", e)}
+                                    className="w-full lm-btn-secondary py-2 text-accent2 font-semibold text-center hover:bg-accent2/10"
+                                  >
+                                    Promote to Writer
+                                  </button>
+                                )
                               ) : null}
 
                               {selectedUser.user.status === "ACTIVE" ? (

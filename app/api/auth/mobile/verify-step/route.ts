@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       const recentVerification = await prisma.phoneVerification.findFirst({
         where: {
           phoneNumber: phone,
+          type: "REGISTRATION",
           createdAt: { gte: oneMinuteAgo }
         }
       });
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
         data: {
           phoneNumber: phone,
           codeHash,
+          type: "REGISTRATION",
           expiresAt,
           userId: currentUser.id
         }
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
         where: {
           phoneNumber: phone,
           userId: currentUser.id,
+          type: "REGISTRATION",
           verified: false,
           expiresAt: { gte: new Date() }
         },

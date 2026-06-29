@@ -9,8 +9,10 @@ import {
   ChevronRight,
   LogOut,
   Menu,
+  PenTool,
   Quote,
   Star,
+  User,
   UserCircle,
   Crown,
   Sparkles,
@@ -889,6 +891,7 @@ function Counter({ value }: { value: number }) {
 function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser, userRole, monetizationSettings, writerNote, platformStats }: HomePageProps) {
   const isGuest = !isAuthenticated;
   const isAdmin = userRole === "ADMIN";
+  const isWriter = userRole === "WRITER";
   const featuredStory = stories[3] ?? null;
   const { showToast } = useToast();
 
@@ -1293,8 +1296,8 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
 
   return (
     <main className="home-main overflow-hidden pb-[calc(68px+env(safe-area-inset-bottom))] md:pb-0">
-      {/* ── MOBILE APP SHELL HEADER ── */}
-      <header className="fixed left-0 right-0 top-0 z-[9999] bg-surface-raised/80 backdrop-blur-md border-b border-border/40 px-4 py-3 md:hidden flex items-center justify-between">
+      {/* ── MOBILE AND TABLATE APP SHELL HEADER ── */}
+      <header className="fixed left-0 right-0 top-0 z-[9999] bg-surface-raised/80 backdrop-blur-md border-b border-border/40 px-4 py-3 lg:hidden flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-on-accent shadow-glow">
             <BookOpen className="h-5 w-5" />
@@ -1325,6 +1328,14 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                   <Link href="/dashboard" onClick={() => setProfileOpen(false)} className="lm-btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5 mb-2">
                     <UserCircle className="h-3.5 w-3.5" /> Dashboard
                   </Link>
+                  <Link href="/profile" onClick={() => setProfileOpen(false)} className="lm-btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5 mb-2">
+                    <User className="h-3.5 w-3.5" /> Profile
+                  </Link>
+                  {isWriter && (
+                    <Link href="/writer" onClick={() => setProfileOpen(false)} className="lm-btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5 mb-2">
+                      <PenTool className="h-3.5 w-3.5" /> Writer Studio
+                    </Link>
+                  )}
                   <button
                     onClick={() => { setProfileOpen(false); handleLogout(); }}
                     className="w-full py-2 rounded-lg bg-danger/10 border border-danger/25 text-xs text-danger font-semibold flex items-center justify-center gap-1 cursor-pointer"
@@ -1341,15 +1352,15 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           )}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 border border-border bg-surface rounded-lg cursor-pointer"
+            className="py-1.5 rounded-lg cursor-pointer"
           >
-            <Menu className="h-4 w-4 text-ink" />
+            <Menu className="h-6 w-6 text-ink" />
           </button>
         </div>
       </header>
 
       {/* ── DESKTOP HEADER (HIDDEN ON MOBILE) ── */}
-      <header className="home-header fixed left-0 top-0 z-[9999] w-full px-4 py-2 hidden md:block">
+      <header className="home-header fixed left-0 top-0 z-[9999] w-full px-4 py-2 hidden lg:block">
         <nav className="mx-auto flex justify-between rounded-full border border-white/10 bg-surface-raised/90 backdrop-blur-xl pr-2 pl-3 py-1.5">
           <Link href="/" className="home-logo flex items-center gap-3">
             <span className="home-logo-icon grid h-10 w-10 place-items-center rounded-xl bg-accent text-on-accent shadow-glow">
@@ -1368,6 +1379,11 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
               <a href="/coins" className="home-nav-link transition hover:text-accent text-xl">
                 Coins
               </a>
+              {isWriter ? (
+                <Link href="/writer" className="home-nav-link transition hover:text-accent text-xl">
+                  Writer
+                </Link>
+              ) : null}
               {isAdmin ? (
                 <a href="#protection" className="home-nav-link transition hover:text-accent text-xl">
                   Protection
@@ -1381,7 +1397,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
             </div>
           ) : null}
           <div className="home-header-actions flex items-center gap-3">
-            <div className={isGuest ? "block" : "hidden md:block"}>
+            <div className={isGuest ? "block" : "hidden lg:block"}>
               <ThemeSwitcher compact />
             </div>
             {isGuest ? (
@@ -1434,9 +1450,13 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                           </span>
                         </div>
                       </div>
-                      <Link href="/dashboard" className="lm-btn-secondary mb-3 w-full py-2" role="menuitem">
+                      <Link href="/dashboard" className="lm-btn-secondary mb-2 w-full py-2" role="menuitem">
                         <UserCircle className="h-4 w-4" />
                         View Dashboard
+                      </Link>
+                      <Link href="/profile" className="lm-btn-secondary mb-3 w-full py-2" role="menuitem">
+                        <User className="h-4 w-4" />
+                        Edit Profile
                       </Link>
                       <button
                         type="button"
@@ -1451,9 +1471,6 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                     </div>
                   ) : null}
                 </div>
-                <button className="home-action-mobile-menu rounded-lg border border-border bg-surface p-2 lg:hidden" aria-label="Open menu">
-                  <Menu className="h-5 w-5 text-ink" />
-                </button>
               </>
             )}
           </div>
@@ -1464,8 +1481,8 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           ✦ VELORA FICTION — HOMEPAGE (Kai Portfolio Structure)
           ================================================================ */}
 
-      {/* ── MOBILE APP WELCOME CARD (MOBILE ONLY) ── */}
-      <section id="home-mobile" className="relative flex flex-col w-full items-center overflow-hidden pt-16 pb-6 md:hidden">
+      {/* ── MOBILE AND TABLATE APP WELCOME CARD (MOBILE ONLY) ── */}
+      <section id="home-mobile" className="relative flex flex-col w-full items-center overflow-hidden pt-16 pb-6 lg:hidden">
         {/* Background glow orbs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div
@@ -1526,7 +1543,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
       </section>
 
       {/* ─────────────── HERO (DESKTOP/TABLET ONLY) ─────────────── */}
-      <section id="home" className="hero-section relative !hidden md:!flex min-h-screen w-full items-center overflow-hidden pt-20">
+      <section id="home" className="hero-section relative !hidden lg:!flex min-h-screen w-full items-center overflow-hidden pt-20">
         {/* Background glow orbs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div
@@ -1716,10 +1733,6 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
         </motion.div>
       </section>
 
-      {/* ─────────────── GUEST: 3D CAROUSEL ─────────────── */}
-      {isGuest && stories.length > 0 ? (
-        <StoryCarouselSection stories={stories} />
-      ) : null}
 
       {/* ─────────────── AUTHENTICATED SECTIONS ─────────────── */}
       {isAuthenticated ? (
@@ -1742,7 +1755,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           ) : null}
 
           {/* ── STORIES — Kai "Projects" layout ── */}
-          <section id="stories" className="stories-section relative overflow-hidden py-24">
+          <section id="stories" className="stories-section relative overflow-hidden py-[var(--space-3xl)]">
             <div className="pointer-events-none absolute inset-0 -z-10">
               <div className="absolute -right-32 top-0 h-96 w-96 rounded-full opacity-10 blur-3xl" style={{ background: "var(--accent)" }} />
               <div className="absolute -left-32 bottom-0 h-80 w-80 rounded-full opacity-10 blur-3xl" style={{ background: "var(--accent2)" }} />
@@ -1758,10 +1771,10 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                 className="stories-heading mb-14 text-center"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Story Library</p>
-                <h2 className="mt-4 font-display text-4xl font-semibold text-ink md:text-5xl">
+                <h2 className="mt-[var(--vspace-sm)] font-display text-3xl font-semibold text-ink md:text-5xl">
                   Premium stories, free &amp; paid
                 </h2>
-                <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-soft-ink">
+                <p className="mx-auto mt-[var(--space-md)] max-w-2xl text-md leading-7 text-soft-ink">
                   Each story has free sample chapters to explore. Unlock premium chapters with coins.
                 </p>
                 {/* Decorative line */}
@@ -1780,10 +1793,10 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: "-60px" }}
-                className="stories-grid flex md:grid gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 scrollbar-none snap-x snap-mandatory md:grid-cols-2 lg:grid-cols-3"
+                className="stories-grid flex md:grid gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 scrollbar-none snap-x snap-mandatory md:grid-cols-3 lg:grid-cols-3"
               >
                 {stories.slice(0, 3).map((story) => (
-                  <div key={story.id} className="min-w-[140px] w-[140px] md:w-auto shrink-0 snap-align-start snap-always">
+                  <div key={story.id} className="shrink-0 snap-align-start snap-always">
                     <KaiStoryCard story={story} />
                   </div>
                 ))}
@@ -2493,7 +2506,7 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
       </motion.footer>
 
       {/* ── MOBILE BOTTOM NAV ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-surface-raised/90 backdrop-blur-md border-t border-border/40 pb-[env(safe-area-inset-bottom)] shadow-lg flex justify-around py-2.5">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-raised/90 backdrop-blur-md border-t border-border/40 pb-[env(safe-area-inset-bottom)] shadow-lg flex justify-around py-2.5">
         <a href="#home" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
           <Home className="h-5 w-5" />
           <span>Home</span>
@@ -2506,12 +2519,18 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
           <Coins className="h-5 w-5" />
           <span>Coins</span>
         </a>
+        {isWriter && (
+          <Link href="/writer" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+            <PenTool className="h-5 w-5" />
+            <span>Writer</span>
+          </Link>
+        )}
         <Link href="/library" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
           <Bookmark className="h-5 w-5" />
           <span>Library</span>
         </Link>
         {isAuthenticated ? (
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
+          <Link href="/profile" className="flex flex-col items-center gap-1 text-[10px] font-bold text-muted hover:text-accent transition uppercase tracking-wider">
             <UserCircle className="h-5 w-5" />
             <span>Profile</span>
           </Link>
@@ -2532,14 +2551,14 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-[99999] bg-black/60 lg:hidden"
             />
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 right-0 top-0 z-[999999] w-72 bg-surface-raised p-6 shadow-2xl backdrop-blur-xl md:hidden flex flex-col justify-between"
+              className="fixed bottom-0 right-0 top-0 z-[999999] w-72 bg-surface-raised p-6 shadow-2xl backdrop-blur-xl lg:hidden flex flex-col justify-between"
             >
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -2592,13 +2611,31 @@ function HomeClassicLayout({ stories, coinPackages, isAuthenticated, currentUser
                     </>
                   )}
                   {isAuthenticated && (
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="hover:text-accent py-2 border-b border-border/40"
-                    >
-                      User Dashboard
-                    </Link>
+                    <>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="hover:text-accent py-2 border-b border-border/40"
+                      >
+                        User Dashboard
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="hover:text-accent py-2 border-b border-border/40"
+                      >
+                        Edit Profile
+                      </Link>
+                      {isWriter && (
+                        <Link
+                          href="/writer"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="hover:text-accent py-2 border-b border-border/40"
+                        >
+                          Writer Studio
+                        </Link>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -2685,7 +2722,7 @@ function KaiStoryCard({ story }: { story: Story }) {
       <motion.div
         variants={scrollReveal}
         whileHover={{ y: -6 }}
-        className="kai-story-card group relative overflow-hidden rounded-xl border border-border/20 bg-surface/10 backdrop-blur transition-all duration-300 hover:border-accent/30 hover:shadow-soft aspect-[3/4] w-[140px] h-[210px] md:w-full md:h-auto cursor-pointer"
+        className="kai-story-card group relative overflow-hidden rounded-xl border border-border/20 bg-surface/10 backdrop-blur transition-all duration-300 hover:border-accent/30 hover:shadow-soft aspect-[3/4] w-[var(--w-lg)] h-[cal(var(--w-lg)*4/3)] xl:w-full xl:h-auto cursor-pointer"
       >
         {/* ===== बैकग्राउंड ग्लो (होवर) ===== */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

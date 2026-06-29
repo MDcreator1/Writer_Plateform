@@ -321,6 +321,137 @@ body {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-reader: "Georgia", serif;
   --font-unbounded: "Unbounded", sans-serif;
+
+  /*Sizing Variable for reposivness*/
+
+  /* ==========================
+       SPACING
+    ========================== */
+
+  --space-2xs: clamp(2px, 0.15vw, 4px);
+  --space-xs: clamp(4px, 0.35vw, 8px);
+  --space-sm: clamp(8px, 0.6vw, 12px);
+  --space-md: clamp(12px, 1vw, 20px);
+  --space-lg: clamp(16px, 1.4vw, 28px);
+  --space-xl: clamp(24px, 2vw, 40px);
+  --space-2xl: clamp(32px, 3vw, 64px);
+  --space-3xl: clamp(30px, 7vw, 96px);
+
+  /* ==========================
+   VERTICAL SPACING (HEIGHT BASED)
+========================== */
+
+  --vspace-2xs: clamp(2px, 0.3vh, 4px);
+  --vspace-xs: clamp(4px, 0.6vh, 8px);
+  --vspace-sm: clamp(8px, 1vh, 12px);
+  --vspace-md: clamp(12px, 1.5vh, 20px);
+  --vspace-lg: clamp(20px, 2.5vh, 32px);
+  --vspace-xl: clamp(32px, 4vh, 56px);
+  --vspace-2xl: clamp(48px, 6vh, 80px);
+  --vspace-3xl: clamp(64px, 8vh, 120px);
+  --vspace-4xl: clamp(96px, 12vh, 180px);
+
+  /* ==========================
+       FONT SIZE
+    ========================== */
+
+  --text-xs: clamp(10px, 0.65vw, 12px);
+  --text-sm: clamp(12px, 0.8vw, 14px);
+  --text-base: clamp(14px, 1vw, 16px);
+  --text-md: clamp(16px, 1.2vw, 18px);
+  --text-lg: clamp(18px, 1.5vw, 22px);
+  --text-xl: clamp(22px, 2vw, 30px);
+  --text-2xl: clamp(28px, 3vw, 42px);
+  --text-3xl: clamp(36px, 4vw, 56px);
+  --text-4xl: clamp(48px, 5vw, 72px);
+  --text-display: clamp(56px, 7vw, 120px);
+
+  /* ==========================
+       BORDER RADIUS
+    ========================== */
+
+  --radius-sm: clamp(6px, 0.5vw, 10px);
+  --radius-md: clamp(10px, 0.8vw, 16px);
+  --radius-lg: clamp(16px, 1vw, 24px);
+  --radius-xl: clamp(24px, 1.5vw, 36px);
+  --radius-full: 999px;
+
+  /* ==========================
+       WIDTH
+    ========================== */
+
+  --w-xs: clamp(60px, 6vw, 100px);
+  --w-sm: clamp(100px, 10vw, 180px);
+  --w-md: clamp(180px, 18vw, 320px);
+  --w-lg: clamp(200px, 28vw, 520px);
+  --w-xl: clamp(350px, 40vw, 900px);
+
+  /* ==========================
+       HEIGHT
+    ========================== */
+
+  --h-xs: clamp(24px, 2vw, 40px);
+  --h-sm: clamp(40px, 3vw, 60px);
+  --h-md: clamp(56px, 5vw, 100px);
+  --h-lg: clamp(100px, 10vw, 240px);
+
+  /* ==========================
+       ICON SIZE
+    ========================== */
+
+  --icon-xs: clamp(12px, 0.8vw, 16px);
+  --icon-sm: clamp(16px, 1vw, 22px);
+  --icon-md: clamp(22px, 1.5vw, 30px);
+  --icon-lg: clamp(32px, 2vw, 48px);
+  --icon-xl: clamp(48px, 3vw, 72px);
+
+  /* ==========================
+       TOP / LEFT / RIGHT / BOTTOM
+    ========================== */
+
+  --top-xs: clamp(2px, 0.2vw, 6px);
+  --top-sm: clamp(6px, 0.6vw, 12px);
+  --top-md: clamp(12px, 1vw, 24px);
+  --top-lg: clamp(24px, 2vw, 48px);
+  --top-xl: clamp(48px, 4vw, 96px);
+
+  --left-xs: clamp(2px, 0.2vw, 6px);
+  --left-sm: clamp(6px, 0.6vw, 12px);
+  --left-md: clamp(12px, 1vw, 24px);
+  --left-lg: clamp(24px, 2vw, 48px);
+  --left-xl: clamp(48px, 4vw, 96px);
+
+  --right-xs: clamp(2px, 0.2vw, 6px);
+  --right-sm: clamp(6px, 0.6vw, 12px);
+  --right-md: clamp(12px, 1vw, 24px);
+  --right-lg: clamp(24px, 2vw, 48px);
+  --right-xl: clamp(48px, 4vw, 96px);
+
+  --bottom-xs: clamp(2px, 0.2vw, 6px);
+  --bottom-sm: clamp(6px, 0.6vw, 12px);
+  --bottom-md: clamp(12px, 1vw, 24px);
+  --bottom-lg: clamp(24px, 2vw, 48px);
+  --bottom-xl: clamp(48px, 4vw, 96px);
+
+  /* ==========================
+       GAP
+    ========================== */
+
+  --gap-xs: clamp(4px, 0.4vw, 8px);
+  --gap-sm: clamp(8px, 0.8vw, 16px);
+  --gap-md: clamp(16px, 1.2vw, 24px);
+  --gap-lg: clamp(24px, 2vw, 40px);
+  --gap-xl: clamp(40px, 3vw, 64px);
+
+  /* ==========================
+       SHADOW BLUR
+    ========================== */
+
+  --blur-sm: clamp(6px, 0.8vw, 12px);
+  --blur-md: clamp(12px, 1.5vw, 24px);
+  --blur-lg: clamp(20px, 2vw, 40px);
+
+
 }
 
 :root {
@@ -1156,12 +1287,15 @@ body.home-scrollbar-hidden::-webkit-scrollbar {
 .font-hud {
   font-family: "Space Grotesk", "Inter", sans-serif !important;
 }
+
 .font-serif {
   font-family: "Lora", Georgia, serif !important;
 }
+
 .font-display {
   font-family: "Cinzel", "Space Grotesk", serif !important;
 }
+
 .font-mono {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
 }
@@ -1203,8 +1337,8 @@ body.home-scrollbar-hidden::-webkit-scrollbar {
 .glass-card-interactive:hover {
   background: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(99, 102, 241, 0.3) !important;
-  box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.25), 
-              inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
 }
 
 .theme-reader-dark {
@@ -1225,14 +1359,18 @@ body.home-scrollbar-hidden::-webkit-scrollbar {
 }
 
 @keyframes pulse-slow-cinematic {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1) translate(0px, 0px);
     opacity: 0.25;
   }
+
   33% {
     transform: scale(1.15) translate(40px, -30px);
     opacity: 0.35;
   }
+
   66% {
     transform: scale(0.9) translate(-20px, 50px);
     opacity: 0.2;
@@ -1254,6 +1392,6 @@ body.home-scrollbar-hidden::-webkit-scrollbar {
 .particle {
   pointer-events: none;
   position: absolute;
-  background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 70%);
   border-radius: 50%;
 }

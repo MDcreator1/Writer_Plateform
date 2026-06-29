@@ -114,6 +114,38 @@ export async function POST(
       return fail("Action is required", 400);
     }
 
+    if (action === "promote-writer" || action === "demote-writer") {
+      const nextRole = action === "promote-writer" ? "WRITER" : "READER";
+      const actionName = action === "promote-writer" ? "PROMOTE_USER_TO_WRITER" : "DEMOTE_WRITER_TO_READER";
+      const resultMessage = action === "promote-writer" ? "User promoted to writer successfully" : "Writer access removed successfully";
+
+      if (targetUser.role === nextRole) {
+        return ok({ message: resultMessage });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { role: nextRole }
+        });
+        await tx.adminLog.create({
+          data: {
+            adminId: admin.id,
+            action: actionName,
+            target: userId,
+            metadata: {
+              username: targetUser.username,
+              email: targetUser.email,
+              previousRole: targetUser.role,
+              nextRole
+            }
+          }
+        });
+      });
+
+      return ok({ message: resultMessage });
+    }
+
     if (action === "promote-admin" || action === "demote-admin") {
       if (!isPrimaryAdminUser(admin)) {
         return fail("Only the primary admin configured in environment variables can manage admin roles", 403, "PRIMARY_ADMIN_REQUIRED");

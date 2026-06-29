@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PhoneVerification" ADD COLUMN "type" TEXT NOT NULL DEFAULT 'REGISTRATION';

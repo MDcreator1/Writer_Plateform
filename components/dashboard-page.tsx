@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  User,
   Wallet,
   X
 } from "lucide-react";
@@ -257,6 +258,10 @@ export function DashboardPage({ user, data }: DashboardPageProps) {
             Marketplace
           </Link>
           <div className="flex items-center gap-2">
+            <Link href="/profile" className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-accent transition hover:bg-accent-soft">
+              <User className="h-4 w-4" />
+              Profile
+            </Link>
             <ThemeSwitcher compact />
             <button onClick={() => setSecurityModalOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-warning transition hover:bg-warning/15">
               <KeyRound className="h-4 w-4" />

@@ -97,15 +97,15 @@ function FieldLabel({ children, count }: { children: React.ReactNode; count?: st
 }
 
 
-export function CreateStoryPage() {
+export function CreateStoryPage({ redirectPath = "/admin" }: { redirectPath?: string }) {
   return (
     <Suspense fallback={<div className="p-8 text-center text-muted font-semibold">Loading story studio...</div>}>
-      <CreateStoryFormContent />
+      <CreateStoryFormContent redirectPath={redirectPath} />
     </Suspense>
   );
 }
 
-function CreateStoryFormContent() {
+function CreateStoryFormContent({ redirectPath = "/admin" }: { redirectPath?: string }) {
   const searchParams = useSearchParams();
   const paramStoryId = searchParams?.get("storyId") || "";
   const paramProjectId = searchParams?.get("projectId") || "";
@@ -251,7 +251,7 @@ function CreateStoryFormContent() {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       setStatus(published ? "Story published! Redirecting..." : "Draft saved! Redirecting to admin...");
       setTimeout(() => {
-        window.location.href = "/admin";
+        window.location.href = redirectPath;
       }, 1200);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Story save failed.");
